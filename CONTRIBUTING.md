@@ -17,3 +17,5 @@ dotnet test AstroDay.sln --configuration Release
 ```
 
 Keep changes focused, add tests for behavior changes, and avoid committing generated output, local settings, API keys, or downloaded APOD images. UI behavior should be checked on Windows because AstroDay uses WPF, the Windows notification area, desktop personalization APIs, registry startup settings, and DPAPI.
+
+By submitting a contribution you agree that it is licensed under the Apache License 2.0, as described in section 5 of the [LICENSE](LICENSE).

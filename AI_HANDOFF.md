@@ -5,8 +5,8 @@ Updated: 2026-10-04
 ## Project
 
 - Windows-only .NET 10 WPF app for NASA APOD; target framework `net10.0-windows10.0.19041.0`. Cross-platform is out of scope.
-- Use `C:\Users\denni\.dotnet10\dotnet.exe` (SDK 10.0.401). `dotnet` on PATH resolves to SDK 8, while `global.json` requires 10.0.100.
-- Git is initialized on `main` with no commits and no remote; everything is untracked. MIT license; copyright holder `AstroDay contributors` still to be confirmed.
+- Use `%USERPROFILE%\.dotnet10\dotnet.exe` (SDK 10.0.401). `dotnet` on PATH resolves to SDK 8, while `global.json` requires 10.0.100.
+- Git is on `main` with local commits only (no remote yet); author `DMA` (repo-local config). Licensed under Apache 2.0 (`LICENSE`, `NOTICE`, copyright DMA).
 
 ## Completed 2026-10-04
 
@@ -43,5 +43,5 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 ## Next recommended task
 
 1. Add an `HttpMessageHandler` seam in `ApodService` and tests for source ordering, 429 fallback, and video days.
-2. Before the first commit: review untracked files for secrets/user images, set the Git author, and confirm the MIT copyright holder.
+2. Create the GitHub repository (empty, no README/license), add it as `origin` and push `main`.
 3. Prepare a signed or policy-accepted release artifact.
