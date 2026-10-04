@@ -2,6 +2,14 @@
 
 AstroDay is a lightweight, tray-first Windows app for NASA's Astronomy Picture of the Day (APOD). It downloads the best available still image, keeps a local library, and can apply images to the Windows desktop and lock screen.
 
+## Screenshots
+
+![Today tab with the picture of the day, description and date picker](docs/screenshots/today.png)
+
+![Library tab with saved images, favorites and per-image menu](docs/screenshots/library.png)
+
+Images shown are from NASA's Astronomy Picture of the Day (credit: NASA and the individual image authors).
+
 ## Features
 
 - Today preview (double-click opens the image), date picker, and a library of downloaded images. Days are resolved in US Eastern time, as NASA publishes them.
