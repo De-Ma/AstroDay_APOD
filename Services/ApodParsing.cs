@@ -35,6 +35,10 @@ public static class ApodParsing
     public static bool IsVideoContent(string content) =>
         Regex.IsMatch(content, @"\.mp4|youtube\.com|youtu\.be|vimeo\.com", RegexOptions.IgnoreCase);
 
+    // NASA's API and pages can return the site logo as a stand-in until the real picture is published.
+    public static bool IsPlaceholderImageUrl(string? url) =>
+        url is not null && (url.Contains("logo", StringComparison.OrdinalIgnoreCase) || url.Contains("/themes/", StringComparison.OrdinalIgnoreCase));
+
     public static bool IsNasaHttpsUrl(string? url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps &&
         (uri.Host.Equals("nasa.gov", StringComparison.OrdinalIgnoreCase) || uri.Host.EndsWith(".nasa.gov", StringComparison.OrdinalIgnoreCase));

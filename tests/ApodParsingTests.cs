@@ -40,6 +40,16 @@ public sealed class ApodParsingTests
         Assert.Null(ApodParsing.MatchArticleTitle(raw, Oct1));
     }
 
+    [Theory]
+    [InlineData("https://science.nasa.gov/wp-content/themes/nasa-child/assets/images/nasa-logo@2x.png", true)]
+    [InlineData("https://assets.science.nasa.gov/content/dam/x/nasa-logo.svg", true)]
+    [InlineData("https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2026/october/Rainbows.jpg", false)]
+    [InlineData(null, false)]
+    public void IsPlaceholderImageUrl_FlagsSiteLogos(string? url, bool expected)
+    {
+        Assert.Equal(expected, ApodParsing.IsPlaceholderImageUrl(url));
+    }
+
     [Fact]
     public void FindApodImageUrls_PrefersOriginalThenRendition_AndIgnoresOtherImages()
     {

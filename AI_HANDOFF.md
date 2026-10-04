@@ -36,7 +36,8 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 - Go to APOD for old dates relies on article search; the fallback archive page (`/apod/archive/`) only lists about 15 recent days.
 - Library entries created by earlier buggy builds may still hold NASA-logo images; use Reload or Remove from library.
 - The order of switched-off sources is not persisted (they return to the end of the list).
-- Daily check requests sometimes time out at 25 s (seen in logs); consider a longer timeout.
+- When api.nasa.gov hangs, the API source (3 attempts x 25 s) delays fallback to the next source by over a minute; consider a shorter API timeout or fewer retries.
+- On 2026-10-04 the API returned the NASA logo as the image for the new day; `ApodParsing.IsPlaceholderImageUrl` now rejects logo/theme URLs so the next source is tried.
 - Windows Code Integrity previously blocked an unsigned build (policy `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`); `CiTool.exe -lp` must be run elevated to inspect it. Debug builds under `bin\Debug` have run fine.
 
 ## Next recommended task

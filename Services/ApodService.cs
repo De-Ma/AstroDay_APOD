@@ -206,7 +206,7 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
         Exception? lastDownloadError = null;
         foreach (var imageUrl in imageUrls)
         {
-            if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var parsedUrl) || parsedUrl.Scheme != Uri.UriSchemeHttps)
+            if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var parsedUrl) || parsedUrl.Scheme != Uri.UriSchemeHttps || IsPlaceholderImageUrl(imageUrl))
                 continue;
             if (!(parsedUrl.Host.Equals("nasa.gov", StringComparison.OrdinalIgnoreCase) || parsedUrl.Host.EndsWith(".nasa.gov", StringComparison.OrdinalIgnoreCase)))
                 continue;
