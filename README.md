@@ -1,0 +1,95 @@
+# AstroDay
+
+AstroDay is a lightweight, tray-first Windows app for NASA's Astronomy Picture of the Day (APOD). It downloads the best available still image, keeps a local library, and can apply images to the Windows desktop and lock screen.
+
+## Features
+
+- Today preview (double-click opens the image), date picker, and a library of downloaded images. Days are resolved in US Eastern time, as NASA publishes them.
+- Configurable image sources, tried in your chosen order: NASA API (api key), NASA article search (works for past days without a key), and the NASA APOD webpage (today only).
+- Days without a still image (videos) are kept as text-only entries with title and description; **Go to APOD** opens the day on NASA's site.
+- Library cards: double-click opens the image, a three-dot menu offers Go to APOD, Open file location, Reload image and Remove from library.
+- Checks for a new APOD at startup and every 6 hours (every 30 minutes until today's image is available).
+- Favorites collection, visible favorites filter, and a shared **Favorites only** switch next to the apply buttons.
+- When Favorites only is active, random favorites are used for timed wallpaper rotation and manual apply actions. The interval is configurable in minutes (60 by default); lock-screen rotation is optional.
+- Custom image-library location, **Open folder** shortcuts, sign-in startup option, and close-to-tray preference.
+- Dark UI with six selectable accents (Mint, Sky, Violet, Amber, Coral, Lime), toggle-switch settings, themed scrollbars, and a planet-orbit loader.
+- NASA API key protected with Windows DPAPI for the current user; existing plaintext keys are migrated when loaded.
+
+Dates use `yyyy-MM-dd`; local timestamps use `yyyy-MM-dd, HH:mm`.
+
+## Requirements
+
+- Windows 10 version 2004 (build 19041) or newer.
+- .NET 10 SDK to build and run from source.
+- Internet access to NASA for new images. Cached library items remain available offline.
+
+**Framework support:** AstroDay targets .NET 10 LTS. Microsoft lists .NET 10 end of support as November 14, 2028. Keep the SDK/runtime current with Microsoft's servicing updates.
+
+## Run and test
+
+From the repository root:
+
+```powershell
+dotnet restore AstroDay.sln
+dotnet run --project AstroDay.csproj
+dotnet test AstroDay.sln --configuration Release
+```
+
+To verify formatting:
+
+```powershell
+dotnet format AstroDay.sln --verify-no-changes --no-restore
+```
+
+The app opens its window when started normally and adds a notification-area icon. By default, the window close button hides AstroDay to the tray; change **Close to the system tray instead of exiting** in Settings to make close exit the app. **Exit** in the tray menu always quits.
+
+## Publish
+
+Create a self-contained Windows x64 build with managed assemblies bundled into the apphost:
+
+```powershell
+dotnet publish AstroDay.csproj --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true
+```
+
+Output is under `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish`. WPF may emit native support DLLs (and a PDB) beside `AstroDay.exe`; distribute the complete publish folder. Test the published executable on the Windows version you intend to support. Do not move it after enabling sign-in startup; if you do, turn startup off and on again from Settings.
+
+## Data and security
+
+- Settings are stored at `%LOCALAPPDATA%\AstroDay\settings.json`.
+- NASA images and `library.json` are stored in the selected library folder, defaulting to `Pictures\AstroDay`.
+- A user-provided NASA API key is protected using Windows DPAPI with current-user scope. This protects it at rest from other Windows users, but not from malware or processes running as the same user. Do not commit settings, API keys, library contents, or logs.
+- Downloads require HTTPS, image URLs must be on NASA-owned hosts, returned APOD dates are validated, and a single image is limited to 100 MB.
+- JSON settings and library indexes use same-directory temporary-file replacement. A malformed settings file or image index is preserved as a timestamped `.corrupt-*` recovery copy when possible.
+- Unexpected exceptions are written to a rotating local log under `%LOCALAPPDATA%\AstroDay\logs`; API query keys are redacted from logged text.
+- AstroDay does not open a network listener or send telemetry. NASA receives the API key with API requests.
+
+See [SECURITY.md](SECURITY.md) for the security policy and [CONTRIBUTING.md](CONTRIBUTING.md) for development checks.
+
+## Windows behavior
+
+Desktop wallpaper changes use a Windows desktop API. Lock-screen personalization can be limited by Windows account, app packaging identity, or device policy; AstroDay reports failures, but this feature must be verified on the target device. Startup registration is per-user and writes the app executable path to the current user's Run key.
+
+The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your own key in Settings, or rely on the article-search source. APOD sometimes publishes a video instead of a still image; AstroDay stores only the text for those days and never applies them as wallpaper.
+
+## About
+
+- Product version: `1.0.0`
+- Application creation date: `2026-09-30`
+- License: MIT. See [LICENSE](LICENSE).
+
+The Settings drawer also shows the product version and creation date.
+
+## Quality checks
+
+The test suite covers favorite selection, DPAPI round-tripping, migration of legacy plaintext keys, malformed settings recovery, atomic JSON replacement, APOD page/article parsing, the Eastern-time APOD day, source-order persistence, and library save/reload/remove including text-only entries. The window code and the download/fallback loop have no automated tests. GitHub Actions runs formatting verification and the Release test suite on Windows for pushes and pull requests.
+
+## Release checklist
+
+- Run `dotnet format AstroDay.sln --verify-no-changes --no-restore` and `dotnet test AstroDay.sln --configuration Release`.
+- Confirm the GitHub Actions workflow passes on Windows and publish from a clean tagged commit.
+- Test a clean first launch, settings migration, an API outage (source fallback order), a video day, and browsing cached and uncached dates.
+- Verify maximizing does not cover the taskbar.
+- Verify favorites interval and target behavior, close-to-tray, startup registration, library relocation, and Explorer shortcut.
+- Verify desktop and lock-screen behavior on supported Windows versions and a managed-device scenario.
+- Review `.gitignore` and make sure no API key, personal images, settings, logs, or build output will be committed.
+- Build and test the published artifact, not only the development build.

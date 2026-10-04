@@ -1,0 +1,475 @@
+﻿<Window x:Class="AstroDay.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="AstroDay" Width="1160" Height="800" MinWidth="900" MinHeight="650"
+        WindowStyle="None" ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource CanvasBrush}" Foreground="{DynamicResource TextBrush}"
+        WindowStartupLocation="CenterScreen">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="42" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="8" UseAeroCaptionButtons="False" />
+  </shell:WindowChrome.WindowChrome>
+  <Window.Resources>
+    <Style x:Key="SettingsHeader" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="SettingsHint" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="SettingsRow" TargetType="DockPanel">
+      <Setter Property="Margin" Value="0,0,0,14" />
+    </Style>
+    <Style x:Key="ThemedContextMenu" TargetType="ContextMenu">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ContextMenu">
+            <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="5" Padding="4">
+              <StackPanel IsItemsHost="True" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="ThemedMenuItem" TargetType="MenuItem">
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="MenuItem">
+            <Border x:Name="ItemBorder" Background="Transparent" CornerRadius="3" Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="Orbit2s" TargetType="Grid">
+      <Style.Triggers>
+        <Trigger Property="IsVisible" Value="True">
+          <Trigger.EnterActions><BeginStoryboard><Storyboard RepeatBehavior="Forever"><DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)" From="0" To="360" Duration="0:0:2" /></Storyboard></BeginStoryboard></Trigger.EnterActions>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="Orbit5s" TargetType="Grid">
+      <Style.Triggers>
+        <Trigger Property="IsVisible" Value="True">
+          <Trigger.EnterActions><BeginStoryboard><Storyboard RepeatBehavior="Forever"><DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)" From="0" To="360" Duration="0:0:5" /></Storyboard></BeginStoryboard></Trigger.EnterActions>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="Orbit9s" TargetType="Grid">
+      <Style.Triggers>
+        <Trigger Property="IsVisible" Value="True">
+          <Trigger.EnterActions><BeginStoryboard><Storyboard RepeatBehavior="Forever"><DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)" From="0" To="360" Duration="0:0:9" /></Storyboard></BeginStoryboard></Trigger.EnterActions>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+  <Grid Background="{DynamicResource CanvasBrush}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="42" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <DockPanel Grid.Row="0" Background="{DynamicResource PanelBrush}" LastChildFill="False">
+      <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="16,0,0,0" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Image Source="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" Width="20" Height="20" Margin="0,0,9,0" />
+        <TextBlock Text="AstroDay" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Button Style="{StaticResource ChromeButtonStyle}" Content="—" ToolTip="Minimize" Click="Minimize_Click" />
+        <Button Style="{StaticResource ChromeButtonStyle}" Content="□" ToolTip="Maximize" Click="Maximize_Click" />
+        <Button Style="{StaticResource ChromeButtonStyle}" Content="×" ToolTip="Close to tray" Click="Hide_Click" />
+      </StackPanel>
+    </DockPanel>
+    <Grid Grid.Row="1" Margin="28" Background="{DynamicResource CanvasBrush}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,22">
+      <StackPanel DockPanel.Dock="Left">
+        <TextBlock Text="ASTRODAY  /  NASA APOD" Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="SemiBold" />
+        <TextBlock Text="A little farther, every day." FontSize="27" FontWeight="Medium" Margin="0,4,0,0" />
+      </StackPanel>
+      <Button DockPanel.Dock="Right" Content="Settings" Click="SettingsDrawer_Click" VerticalAlignment="Center" />
+      <Button DockPanel.Dock="Right" Content="Check now" Click="CheckNow_Click" VerticalAlignment="Center" />
+      <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,14,0" HorizontalAlignment="Right">
+        <TextBlock x:Name="StatusText" Text="Ready" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" />
+        <TextBlock x:Name="LastCheckedText" Text="Not checked yet" Foreground="{DynamicResource MutedBrush}" FontSize="11" HorizontalAlignment="Right" Margin="0,3,0,0" />
+      </StackPanel>
+    </DockPanel>
+
+    <TabControl x:Name="MainTabs" Grid.Row="2" Background="{DynamicResource CanvasBrush}" BorderThickness="0">
+      <TabControl.Template>
+        <ControlTemplate TargetType="TabControl">
+          <Grid ClipToBounds="False">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="44" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" BorderBrush="{DynamicResource RaisedBrush}" BorderThickness="0,0,0,2">
+              <TabPanel IsItemsHost="True" Background="Transparent" VerticalAlignment="Bottom" />
+            </Border>
+            <ContentPresenter Grid.Row="1" ContentSource="SelectedContent" Margin="0,8,0,0" />
+          </Grid>
+        </ControlTemplate>
+      </TabControl.Template>
+      <TabControl.Resources>
+        <Style TargetType="TabItem">
+          <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Padding" Value="26,0" />
+          <Setter Property="Height" Value="42" />
+          <Setter Property="MinHeight" Value="42" />
+          <Setter Property="Margin" Value="0,0,4,-2" />
+          <Setter Property="FontSize" Value="15" />
+          <Setter Property="BorderThickness" Value="0" />
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="TabItem">
+                <Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,3" CornerRadius="6,6,0,0" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                  <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsSelected" Value="True">
+                    <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource PanelBrush}" />
+                    <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                  </Trigger>
+                  <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                      <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True" />
+                      <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                  </MultiDataTrigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
+          <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            </Trigger>
+          </Style.Triggers>
+        </Style>
+      </TabControl.Resources>
+      <TabItem Header="Today">
+        <Grid Margin="0,8,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1.55*" />
+            <ColumnDefinition Width="24" />
+            <ColumnDefinition Width="1*" />
+          </Grid.ColumnDefinitions>
+          <Border Grid.Column="0" Background="{DynamicResource PanelBrush}" CornerRadius="6" ClipToBounds="True" MouseLeftButtonDown="FeaturedPreview_MouseDown" ToolTip="Double-click to open">
+            <Grid>
+              <Image x:Name="FeaturedImage" Stretch="Uniform" />
+              <Border VerticalAlignment="Bottom" Background="#C8101619" Padding="16,10">
+                <TextBlock x:Name="ImageDate" Foreground="{DynamicResource AccentBrush}" FontSize="13" />
+              </Border>
+              <TextBlock x:Name="EmptyImageText" Text="No still image is available for this date" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="420" Visibility="Collapsed" />
+              <Border x:Name="LoadingOverlay" Background="#C8101619" Visibility="Collapsed">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Grid Width="136" Height="136">
+                    <Grid x:Name="PlanetOrbitInner" Width="64" Height="64" RenderTransformOrigin="0.5,0.5" Style="{StaticResource Orbit2s}">
+                      <Grid.RenderTransform><RotateTransform Angle="0" /></Grid.RenderTransform>
+                      <Ellipse Width="6" Height="6" Fill="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Top" />
+                    </Grid>
+                    <Grid x:Name="PlanetOrbitMiddle" Width="100" Height="100" RenderTransformOrigin="0.5,0.5" Style="{StaticResource Orbit5s}">
+                      <Grid.RenderTransform><RotateTransform Angle="0" /></Grid.RenderTransform>
+                      <Ellipse Width="8" Height="8" Fill="#86BDEB" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    </Grid>
+                    <Grid x:Name="PlanetOrbitOuter" Width="136" Height="136" RenderTransformOrigin="0.5,0.5" Style="{StaticResource Orbit9s}">
+                      <Grid.RenderTransform><RotateTransform Angle="0" /></Grid.RenderTransform>
+                      <Ellipse Width="10" Height="10" Fill="#F2BE72" HorizontalAlignment="Center" VerticalAlignment="Bottom" />
+                    </Grid>
+                    <Ellipse Width="18" Height="18" Fill="{DynamicResource AccentBrush}" Opacity="0.9" />
+                  </Grid>
+                  <TextBlock Text="Loading NASA's frame" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,12,0,0" />
+                </StackPanel>
+              </Border>
+            </Grid>
+          </Border>
+          <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel>
+              <TextBlock Text="NASA APOD / SELECT A DAY" Foreground="{DynamicResource AccentBrush}" FontSize="11" FontWeight="SemiBold" />
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,9,0,12">
+                <Button Style="{StaticResource DayNavigationButtonStyle}" Content="‹" ToolTip="Previous day" Click="PreviousDay_Click" />
+                <DatePicker x:Name="ApodDatePicker" Width="166" Language="en-CA" VerticalAlignment="Center" SelectedDateChanged="ApodDatePicker_Changed">
+                  <DatePicker.Resources>
+                    <Style TargetType="Button" BasedOn="{StaticResource DatePickerToggleButtonStyle}" />
+                  </DatePicker.Resources>
+                </DatePicker>
+                <Button Style="{StaticResource DayNavigationButtonStyle}" Content="›" ToolTip="Next day" Click="NextDay_Click" />
+                <Button Content="Today" Click="Today_Click" Padding="10,7" Margin="0" />
+                <Button x:Name="TodayReloadButton" Content="⟳ Reload" ToolTip="Download this day's image again" Click="TodayReload_Click" Padding="10,7" Margin="8,0,0,0" />
+              </StackPanel>
+              <TextBox x:Name="FeaturedTitle" Text="Connecting to NASA…" FontSize="25" FontWeight="Medium" TextWrapping="Wrap" IsReadOnly="True" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{DynamicResource TextBrush}" SelectionBrush="{DynamicResource AccentBrush}" Margin="0,9,0,12" />
+            </StackPanel>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+              <TextBox x:Name="FeaturedExplanation" Foreground="{DynamicResource MutedBrush}" FontSize="14" TextWrapping="Wrap" IsReadOnly="True" Background="Transparent" BorderThickness="0" Padding="0" SelectionBrush="{DynamicResource AccentBrush}" />
+            </ScrollViewer>
+            <StackPanel Grid.Row="2" Margin="0,18,0,0">
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="FavoriteButton" Content="☆  Save to favorites" Click="FavoriteButton_Click" />
+                <Button Content="🌐  Go to APOD" ToolTip="Open this day on NASA's APOD website (e.g. to watch a video)" Click="TodayOpenApod_Click" Margin="8,0,0,0" />
+              </StackPanel>
+              <TextBlock Text="APOD downloads continue even when favorites control what gets applied." Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" />
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Library">
+        <Grid Margin="0,8,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <DockPanel Margin="0,0,0,14" LastChildFill="False">
+            <TextBlock Text="Saved images" FontSize="19" FontWeight="Medium" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+              <Button x:Name="OpenLibraryFolderButton" Content="📂 Open folder" ToolTip="Open the library folder in Explorer" Click="OpenLibraryFolder_Click" Margin="0,0,18,0" />
+              <Button x:Name="AllImagesButton" Content="All images" Click="ShowAll_Click" />
+              <Button x:Name="FavoritesFilterButton" Content="★ Favorites" Click="ShowFavorites_Click" />
+              <TextBlock x:Name="LibraryCountText" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="14,0,0,0" />
+            </StackPanel>
+          </DockPanel>
+          <ListBox x:Name="GalleryList" Grid.Row="1" Padding="5,10,5,5" Background="Transparent" BorderThickness="0" SelectionChanged="GalleryList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle>
+              <Style TargetType="ListBoxItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0,5,14,14" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <EventSetter Event="MouseDoubleClick" Handler="GalleryItem_DoubleClick" />
+                <Style.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Panel.ZIndex" Value="1" />
+                  </Trigger>
+                </Style.Triggers>
+              </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Width="210" Height="240" CornerRadius="0" ClipToBounds="True" BorderThickness="1">
+                  <Border.Style>
+                    <Style TargetType="Border">
+                      <Setter Property="BorderBrush" Value="Transparent" />
+                      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+                      <Setter Property="BorderThickness" Value="2" />
+                      <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+                      <Setter Property="RenderTransform"><Setter.Value><TranslateTransform Y="0" /></Setter.Value></Setter>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                          <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                          <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                          <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                          <Setter Property="BorderBrush" Value="{DynamicResource TextBrush}" />
+                          <Setter Property="BorderThickness" Value="4" />
+                          <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                        </DataTrigger>
+                        <MultiDataTrigger>
+                          <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True" />
+                            <Condition Binding="{Binding IsFavorite}" Value="False" />
+                          </MultiDataTrigger.Conditions>
+                          <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                        </MultiDataTrigger>
+                        <EventTrigger RoutedEvent="Mouse.MouseEnter">
+                          <BeginStoryboard>
+                            <Storyboard>
+                              <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="-3" Duration="0:0:0.12" />
+                            </Storyboard>
+                          </BeginStoryboard>
+                        </EventTrigger>
+                        <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                          <BeginStoryboard>
+                            <Storyboard>
+                              <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="0" Duration="0:0:0.16" />
+                            </Storyboard>
+                          </BeginStoryboard>
+                        </EventTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Border.Style>
+                  <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="128" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Image Source="{Binding FilePath, Converter={StaticResource FileImageConverter}, IsAsync=True}" Stretch="UniformToFill" />
+                    <TextBlock Text="No still image&#10;(video)" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="Visibility" Value="Collapsed" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasImage}" Value="False">
+                              <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                    <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="7" Padding="5,2" Background="{DynamicResource AccentBrush}" CornerRadius="8">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Setter Property="Visibility" Value="Collapsed" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                              <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <TextBlock Text="★" Foreground="{DynamicResource CanvasBrush}" FontSize="12" FontWeight="Bold" />
+                    </Border>
+                    <Grid Grid.Row="1" Margin="11,8,11,8">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="26" />
+                      </Grid.RowDefinitions>
+                      <TextBlock Text="{Binding Date}" Foreground="{DynamicResource AccentBrush}" FontSize="11" />
+                      <TextBlock Grid.Row="1" Text="{Binding Title}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Margin="0,3,0,3" />
+                      <StackPanel Grid.Row="2" Orientation="Horizontal">
+                        <Button Content="{Binding IsFavorite, Converter={StaticResource FavoriteLabelConverter}}" Tag="{Binding Date}" Click="GalleryFavorite_Click" Height="26" MinHeight="26" Padding="7,2" Margin="0,0,5,0" />
+                        <Button Content="⋯" ToolTip="More" Tag="{Binding Date}" Click="GalleryMore_Click" Height="26" MinHeight="26" Width="28" MinWidth="28" Padding="0,0,0,4" FontWeight="Bold">
+                          <Button.ContextMenu>
+                            <ContextMenu Style="{StaticResource ThemedContextMenu}">
+                              <MenuItem Style="{StaticResource ThemedMenuItem}" Header="📂  Open file location" Click="GalleryOpenLocation_Click" />
+                              <MenuItem Style="{StaticResource ThemedMenuItem}" Header="🌐  Go to APOD" Click="GalleryOpenApod_Click" />
+                              <MenuItem Style="{StaticResource ThemedMenuItem}" Header="⟳  Reload image" Click="GalleryReload_Click" />
+                              <MenuItem Style="{StaticResource ThemedMenuItem}" Header="✕  Remove from library" Click="GalleryRemove_Click" />
+                            </ContextMenu>
+                          </Button.ContextMenu>
+                        </Button>
+                      </StackPanel>
+                    </Grid>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </TabItem>
+    </TabControl>
+
+    <Border x:Name="SettingsDrawer" Grid.Row="2" Panel.ZIndex="10" Width="390" HorizontalAlignment="Right" VerticalAlignment="Stretch" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource RaisedBrush}" BorderThickness="1" CornerRadius="6" Padding="22" Visibility="Collapsed">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,16,0">
+          <DockPanel Margin="0,0,0,20" LastChildFill="False">
+            <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Button DockPanel.Dock="Right" Style="{StaticResource DrawerCloseButtonStyle}" Content="×" ToolTip="Close settings" Click="SettingsDrawer_Click" />
+          </DockPanel>
+          <TextBlock Style="{StaticResource SettingsHeader}" Text="APPEARANCE" Margin="0,0,0,10" />
+          <TextBlock Text="Accent colour" Margin="0,0,0,8" />
+          <UniformGrid Columns="3">
+            <Button x:Name="MintAccentButton" Style="{StaticResource AccentSwatchButtonStyle}" Tag="Mint" Background="#9ADBC7" Foreground="#101619" Content="Mint" ToolTip="Use mint accent" Click="AccentSwatch_Click" />
+            <Button x:Name="SkyAccentButton" Style="{StaticResource AccentSwatchButtonStyle}" Tag="Sky" Background="#86BDEB" Foreground="#101619" Content="Sky" ToolTip="Use sky blue accent" Click="AccentSwatch_Click" />
+            <Button x:Name="VioletAccentButton" Style="{StaticResource AccentSwatchButtonStyle}" Tag="Violet" Background="#B8A6F0" Foreground="#101619" Content="Violet" ToolTip="Use violet accent" Click="AccentSwatch_Click" />
+            <Button x:Name="AmberAccentButton" Style="{StaticResource AccentSwatchButtonStyle}" Tag="Amber" Background="#F2BE72" Foreground="#101619" Content="Amber" ToolTip="Use amber accent" Click="AccentSwatch_Click" />
+            <Button x:Name="CoralAccentButton" Style="{StaticResource AccentSwatchButtonStyle}" Tag="Coral" Background="#F08D82" Foreground="#101619" Content="Coral" ToolTip="Use coral accent" Click="AccentSwatch_Click" />
+            <Button x:Name="LimeAccentButton" Style="{StaticResource AccentSwatchButtonStyle}" Tag="Lime" Background="#B5E07A" Foreground="#101619" Content="Lime" ToolTip="Use lime accent" Click="AccentSwatch_Click" />
+          </UniformGrid>
+
+          <Separator Margin="0,22,0,18" Background="{DynamicResource RaisedBrush}" />
+          <TextBlock Style="{StaticResource SettingsHeader}" Text="LIBRARY" Margin="0,0,0,10" />
+          <TextBlock Style="{StaticResource SettingsHint}" Text="Folder for full-resolution originals and the catalogue." Margin="0,0,0,6" />
+          <TextBlock x:Name="LibraryPathText" TextWrapping="Wrap" Margin="0,0,0,10" />
+          <StackPanel Orientation="Horizontal">
+            <Button Content="Choose folder…" Click="ChooseFolder_Click" />
+            <Button Content="Open folder" Click="OpenLibraryFolder_Click" />
+          </StackPanel>
+
+          <Separator Margin="0,22,0,18" Background="{DynamicResource RaisedBrush}" />
+          <TextBlock Style="{StaticResource SettingsHeader}" Text="APPLY IMAGES" Margin="0,0,0,12" />
+          <DockPanel Style="{StaticResource SettingsRow}">
+            <ToggleButton x:Name="WallpaperCheck" DockPanel.Dock="Right" Style="{StaticResource FavoritesSwitchStyle}" Checked="Settings_Changed" Unchecked="Settings_Changed" />
+            <TextBlock Text="Set the desktop wallpaper automatically" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
+          </DockPanel>
+          <DockPanel Style="{StaticResource SettingsRow}">
+            <ToggleButton x:Name="LockScreenCheck" DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource FavoritesSwitchStyle}" Checked="Settings_Changed" Unchecked="Settings_Changed" />
+            <StackPanel Margin="0,0,12,0">
+              <TextBlock Text="Set the Windows lock screen automatically" TextWrapping="Wrap" />
+              <TextBlock x:Name="LockScreenNote" Style="{StaticResource SettingsHint}" Text="Windows may restrict lock-screen changes on managed devices." Margin="0,3,0,0" />
+            </StackPanel>
+          </DockPanel>
+
+          <Separator Margin="0,10,0,18" Background="{DynamicResource RaisedBrush}" />
+          <TextBlock Style="{StaticResource SettingsHeader}" Text="FAVORITES" Margin="0,0,0,12" />
+          <DockPanel Style="{StaticResource SettingsRow}">
+            <TextBox x:Name="FavoriteCycleMinutesTextBox" DockPanel.Dock="Right" Text="60" Width="64" HorizontalContentAlignment="Center" />
+            <TextBlock Text="Rotate favorites every (minutes)" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
+          </DockPanel>
+          <DockPanel Style="{StaticResource SettingsRow}">
+            <ToggleButton x:Name="CycleFavoritesLockScreenCheck" DockPanel.Dock="Right" Style="{StaticResource FavoritesSwitchStyle}" Checked="CycleFavoritesLockScreen_Changed" Unchecked="CycleFavoritesLockScreen_Changed" />
+            <TextBlock Text="Also rotate the lock screen" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
+          </DockPanel>
+          <TextBlock Style="{StaticResource SettingsHint}" Text="Used when &quot;Favorites only&quot; is on. NASA's daily image still downloads into the library." />
+
+          <Separator Margin="0,22,0,18" Background="{DynamicResource RaisedBrush}" />
+          <TextBlock Style="{StaticResource SettingsHeader}" Text="STARTUP" Margin="0,0,0,12" />
+          <DockPanel Style="{StaticResource SettingsRow}">
+            <ToggleButton x:Name="StartupCheck" DockPanel.Dock="Right" Style="{StaticResource FavoritesSwitchStyle}" Checked="Settings_Changed" Unchecked="Settings_Changed" />
+            <TextBlock Text="Start AstroDay when I sign in" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
+          </DockPanel>
+          <DockPanel Style="{StaticResource SettingsRow}">
+            <ToggleButton x:Name="CloseToTrayCheck" DockPanel.Dock="Right" Style="{StaticResource FavoritesSwitchStyle}" Checked="CloseToTray_Changed" Unchecked="CloseToTray_Changed" />
+            <TextBlock Text="Close to the system tray instead of exiting" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
+          </DockPanel>
+
+          <Separator Margin="0,10,0,18" Background="{DynamicResource RaisedBrush}" />
+          <TextBlock Style="{StaticResource SettingsHeader}" Text="IMAGE SOURCES" Margin="0,0,0,10" />
+          <TextBlock Style="{StaticResource SettingsHint}" Text="Tried from top to bottom until one works. Switch a source off to skip it." Margin="0,0,0,10" />
+          <StackPanel x:Name="SourceRows" Margin="0,0,0,12" />
+          <TextBlock Text="NASA API key" Margin="0,0,0,6" />
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Save key" Click="SaveApiKey_Click" Margin="8,0,0,0" />
+            <TextBox x:Name="ApiKeyText" />
+          </DockPanel>
+          <TextBlock Style="{StaticResource SettingsHint}" Text="Without your own key the shared DEMO_KEY is quickly rate limited. Free keys: api.nasa.gov" Margin="0,6,0,0" />
+
+          <Separator Margin="0,22,0,18" Background="{DynamicResource RaisedBrush}" />
+          <TextBlock Style="{StaticResource SettingsHeader}" Text="ABOUT" Margin="0,0,0,8" />
+          <TextBlock x:Name="AboutText" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <DockPanel Grid.Row="3" Margin="0,18,0,0" LastChildFill="False">
+      <TextBlock x:Name="FooterText" DockPanel.Dock="Left" Text="Quietly watching the sky." Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+          <ToggleButton x:Name="FavoritesModeToggle" Style="{StaticResource FavoritesSwitchStyle}" IsChecked="False" Checked="FavoritesModeToggle_Changed" Unchecked="FavoritesModeToggle_Changed" />
+          <TextBlock Text="Favorites only" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+        </StackPanel>
+        <Button Style="{StaticResource PrimaryButtonStyle}" Content="Set desktop" Click="SetDesktop_Click" />
+        <Button Style="{StaticResource PrimaryButtonStyle}" Content="Set lock screen" Click="SetLockScreen_Click" Margin="0" />
+      </StackPanel>
+    </DockPanel>
+    </Grid>
+  </Grid>
+</Window>
