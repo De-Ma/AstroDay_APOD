@@ -179,6 +179,9 @@ public sealed class ApodService
                 if (ApodParsing.MatchArticleTitle(rawTitle, date) is not null && ApodParsing.IsNasaHttpsUrl(link))
                     return link!;
             }
+            var searchArticle = await FindArticleWithLookupSearchAsync(date, "title,link", cancellationToken);
+            if (searchArticle is not null)
+                return searchArticle.Link;
         }
         catch (Exception error) when (!cancellationToken.IsCancellationRequested && error is HttpRequestException or JsonException or KeyNotFoundException or InvalidOperationException) { }
         return ApodParsing.ApodArchiveUrl;
@@ -199,29 +202,71 @@ public sealed class ApodService
             if (titleMatch is null) continue;
 
             var content = entry.GetProperty("content").GetProperty("rendered").GetString() ?? "";
-            var document = new HtmlAgilityPack.HtmlDocument();
-            document.LoadHtml(content);
-            var text = Regex.Replace(HtmlEntity.DeEntitize(document.DocumentNode.InnerText), @"\s+", " ").Trim();
-            var imageUrls = ApodParsing.FindApodImageUrls(content, date).ToList();
-            if (imageUrls.Count == 0)
-            {
-                throw new NoStillImageException(new ApodItem
-                {
-                    Date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                    Title = titleMatch,
-                    Explanation = ExtractExplanation(text)
-                });
-            }
-
-            return await DownloadAndSaveAsync(new ApodItem
-            {
-                Date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                Title = titleMatch,
-                Explanation = ExtractExplanation(text)
-            }, imageUrls, cancellationToken);
+            return await SaveArticleAsync(date, titleMatch, content, cancellationToken);
         }
 
+        var searchArticle = await FindArticleWithLookupSearchAsync(date, "title,content", cancellationToken);
+        if (searchArticle is not null)
+            return await SaveArticleAsync(date, searchArticle.Title, searchArticle.Content, cancellationToken);
+
         throw new InvalidDataException($"NASA has no APOD article with a still image for {label}.");
+    }
+
+    private async Task<ArticleLookup?> FindArticleWithLookupSearchAsync(
+        DateOnly date,
+        string fields,
+        CancellationToken cancellationToken)
+    {
+        using var response = await GetWithRetryAsync(ApodParsing.ArticleLookupSearchUrl(date), "NASA APOD lookup search", cancellationToken);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        foreach (var entry in json.RootElement.EnumerateArray())
+        {
+            var rawTitle = HtmlEntity.DeEntitize(entry.GetProperty("title").GetString() ?? "");
+            var titleMatch = ApodParsing.MatchArticleTitle(rawTitle, date);
+            if (titleMatch is null || !entry.TryGetProperty("id", out var idProperty) ||
+                !idProperty.TryGetInt32(out var articleId))
+                continue;
+
+            using var articleResponse = await GetWithRetryAsync(
+                ApodParsing.ArticleLookupUrl(articleId, fields), "NASA APOD article lookup", cancellationToken);
+            await using var articleStream = await articleResponse.Content.ReadAsStreamAsync(cancellationToken);
+            using var articleJson = await JsonDocument.ParseAsync(articleStream, cancellationToken: cancellationToken);
+            var root = articleJson.RootElement;
+            var link = root.TryGetProperty("link", out var linkProperty) ? linkProperty.GetString() ?? "" : "";
+            var content = root.TryGetProperty("content", out var contentProperty) &&
+                contentProperty.TryGetProperty("rendered", out var renderedProperty)
+                    ? renderedProperty.GetString() ?? ""
+                    : "";
+            return new ArticleLookup(articleId, titleMatch, link, content);
+        }
+        return null;
+    }
+
+    private async Task<ApodItem> SaveArticleAsync(
+        DateOnly date,
+        string title,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        var document = new HtmlAgilityPack.HtmlDocument();
+        document.LoadHtml(content);
+        var text = Regex.Replace(HtmlEntity.DeEntitize(document.DocumentNode.InnerText), @"\s+", " ").Trim();
+        var imageUrls = ApodParsing.FindApodImageUrls(content, date).ToList();
+        if (imageUrls.Count == 0)
+            throw new NoStillImageException(new ApodItem
+            {
+                Date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Title = title,
+                Explanation = ExtractExplanation(text)
+            });
+
+        return await DownloadAndSaveAsync(new ApodItem
+        {
+            Date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            Title = title,
+            Explanation = ExtractExplanation(text)
+        }, imageUrls, cancellationToken);
     }
 
     private async Task<ApodItem> DownloadAndSaveAsync(ApodItem item, IEnumerable<string?> imageUrls, CancellationToken cancellationToken)
@@ -313,4 +358,6 @@ public sealed class ApodService
         [JsonPropertyName("url")] public string? Url { get; set; }
         [JsonPropertyName("hdurl")] public string? HdUrl { get; set; }
     }
+
+    private sealed record ArticleLookup(int Id, string Title, string Link, string Content);
 }

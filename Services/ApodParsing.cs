@@ -25,6 +25,13 @@ public static class ApodParsing
         $"https://science.nasa.gov/wp-json/wp/v2/image-article?per_page=10&_fields={fields}&search=" +
         Uri.EscapeDataString($"APOD: {DateLabel(date)}");
 
+    public static string ArticleLookupSearchUrl(DateOnly date) =>
+        "https://science.nasa.gov/wp-json/wp/v2/search?per_page=100&subtype=image-article&search=" +
+        Uri.EscapeDataString($"APOD: {DateLabel(date)}");
+
+    public static string ArticleLookupUrl(int articleId, string fields) =>
+        $"https://science.nasa.gov/wp-json/wp/v2/image-article/{articleId}?_fields={fields}";
+
     // Returns the title after "APOD: {date} – " or null when the article belongs to another date.
     public static string? MatchArticleTitle(string rawTitle, DateOnly date)
     {
@@ -47,15 +54,24 @@ public static class ApodParsing
     // mission and asset libraries too. Only trusted assets.science.nasa.gov files qualify.
     public static IEnumerable<string> FindApodImageUrls(string html, DateOnly date)
     {
-        var matches = Regex.Matches(html,
+        var normalizedMatches = Regex.Matches(html,
             @"https://assets\.science\.nasa\.gov/(?:dynamicimage/assets|content/dam)/science/[^""'\s<>?]+\.(?:jpe?g|png|gif|webp)",
             RegexOptions.IgnoreCase)
             .Select(match => match.Value)
             .Select(path => path.Replace("/dynamicimage/assets/", "/content/dam/", StringComparison.OrdinalIgnoreCase))
             .Where(path => !IsPlaceholderImageUrl(path))
-            .Where(path => !IsApodImageForAnotherDate(path, date))
+            .ToList();
+        if (normalizedMatches.Count == 0) yield break;
+
+        // The first NASA image in an APOD article is its hero image. NASA sometimes
+        // reuses a past APOD image, so that asset is valid even when its path has an older date.
+        var primaryPath = normalizedMatches[0];
+        var matches = normalizedMatches
+            .Where(path => path.Equals(primaryPath, StringComparison.OrdinalIgnoreCase) ||
+                           !IsApodImageForAnotherDate(path, date))
             .GroupBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(group => group.Count());
+            .OrderByDescending(group => group.Key.Equals(primaryPath, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(group => group.Count());
 
         foreach (var path in matches.Select(group => group.Key))
         {

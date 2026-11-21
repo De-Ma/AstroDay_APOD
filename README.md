@@ -89,7 +89,7 @@ The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your 
 
 ## About
 
-- Product version: `1.4.0-test`
+- Product version: `1.4.1-test`
 - Application creation date: `2026-09-30`
 - License: Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The license does not grant rights to the AstroDay name.
 
@@ -109,4 +109,4 @@ The test suite covers favorite selection, DPAPI round-tripping, migration of leg
 - Verify desktop and lock-screen behavior on supported Windows versions and a managed-device scenario.
 - Review `.gitignore` and make sure no API key, personal images, settings, logs, or build output will be committed.
 - Build and test the published artifact, not only the development build.
-- Add `docs/RELEASE-v<version>.md`, then push a matching `v`-prefixed tag (for example `v1.4.0-test`). Test builds use a `-test` suffix and are published as GitHub prereleases.
+- Add `docs/RELEASE-v<version>.md`, then push a matching `v`-prefixed tag (for example `v1.4.1-test`). Test builds use a `-test` suffix and are published as GitHub prereleases.

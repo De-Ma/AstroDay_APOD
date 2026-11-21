@@ -100,6 +100,43 @@ public sealed class ApodParsingTests
     }
 
     [Fact]
+    public void FindApodImageUrls_AcceptsReusedPrimaryImageFromOlderApodYear()
+    {
+        const string html = """
+            <img src="https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/2021/october/DarkMatter_KipacAmnh_1200.jpg?w=1200" />
+            <img src="https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/2020/june/Other.jpg?w=300" />
+            """;
+
+        var urls = ApodParsing.FindApodImageUrls(html, new DateOnly(2026, 10, 25)).ToArray();
+
+        Assert.Equal(
+        [
+            "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2021/october/DarkMatter_KipacAmnh_1200.jpg",
+            "https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/2021/october/DarkMatter_KipacAmnh_1200.jpg?w=2400"
+        ], urls);
+    }
+
+    [Fact]
+    public void FindApodImageUrls_AcceptsWebbMissionImage()
+    {
+        const string html = """
+            <img src="https://assets.science.nasa.gov/dynamicimage/assets/science/missions/webb/science/2026/10/weic2620a.jpg?w=1280" />
+            """;
+
+        Assert.Equal(
+            "https://assets.science.nasa.gov/content/dam/science/missions/webb/science/2026/10/weic2620a.jpg",
+            ApodParsing.FindApodImageUrls(html, new DateOnly(2026, 11, 16)).First());
+    }
+
+    [Fact]
+    public void ArticleLookupSearchUrl_UsesWordPressSearchApi()
+    {
+        Assert.Equal(
+            "https://science.nasa.gov/wp-json/wp/v2/search?per_page=100&subtype=image-article&search=APOD%3A%202026%20August%2012",
+            ApodParsing.ArticleLookupSearchUrl(new DateOnly(2026, 8, 12)));
+    }
+
+    [Fact]
     public void FindApodImageUrls_ReturnsNothingForVideoOnlyContent()
     {
         const string html = "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2026/august/Launch.mp4";
