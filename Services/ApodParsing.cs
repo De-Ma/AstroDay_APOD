@@ -33,7 +33,7 @@ public static class ApodParsing
     }
 
     public static bool IsVideoContent(string content) =>
-        Regex.IsMatch(content, @"\.mp4|youtube\.com|youtu\.be|vimeo\.com", RegexOptions.IgnoreCase);
+        Regex.IsMatch(content, @"\.mp4|\.webm|youtube\.com|youtu\.be|vimeo\.com|<video\b|<iframe\b", RegexOptions.IgnoreCase);
 
     // NASA's API and pages can return the site logo as a stand-in until the real picture is published.
     public static bool IsPlaceholderImageUrl(string? url) =>
@@ -43,23 +43,37 @@ public static class ApodParsing
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps &&
         (uri.Host.Equals("nasa.gov", StringComparison.OrdinalIgnoreCase) || uri.Host.EndsWith(".nasa.gov", StringComparison.OrdinalIgnoreCase));
 
-    // science.nasa.gov serves APOD images from assets.science.nasa.gov/.../cds/apod/apod/{year}/{month}/.
+    // APOD articles usually use a date-based APOD path, but NASA can reuse images from
+    // mission and asset libraries too. Only trusted assets.science.nasa.gov files qualify.
     public static IEnumerable<string> FindApodImageUrls(string html, DateOnly date)
     {
-        var month = date.ToString("MMMM", CultureInfo.InvariantCulture).ToLowerInvariant();
         var matches = Regex.Matches(html,
-            $@"https://assets\.science\.nasa\.gov/dynamicimage/assets/science/cds/apod/apod/{date.Year}/{month}/[^""'\s<>?]+\.(?:jpe?g|png|gif|webp)",
-            RegexOptions.IgnoreCase);
-        if (matches.Count == 0)
-            matches = Regex.Matches(html,
-                $@"https://assets\.science\.nasa\.gov/dynamicimage/assets/science/cds/apod/apod/{date.Year}/[a-z]+/[^""'\s<>?]+\.(?:jpe?g|png|gif|webp)",
-                RegexOptions.IgnoreCase);
-        foreach (var path in matches.Select(match => match.Value).GroupBy(value => value).OrderByDescending(group => group.Count()).Select(group => group.Key))
+            @"https://assets\.science\.nasa\.gov/(?:dynamicimage/assets|content/dam)/science/[^""'\s<>?]+\.(?:jpe?g|png|gif|webp)",
+            RegexOptions.IgnoreCase)
+            .Select(match => match.Value)
+            .Select(path => path.Replace("/dynamicimage/assets/", "/content/dam/", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !IsPlaceholderImageUrl(path))
+            .Where(path => !IsApodImageForAnotherDate(path, date))
+            .GroupBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count());
+
+        foreach (var path in matches.Select(group => group.Key))
         {
             // Original file first, then a large resized rendition.
-            yield return path.Replace("/dynamicimage/assets/", "/content/dam/");
-            yield return $"{path}?w=2400";
+            yield return path;
+            yield return $"{path.Replace("/content/dam/", "/dynamicimage/assets/", StringComparison.OrdinalIgnoreCase)}?w=2400";
         }
+    }
+
+    private static bool IsApodImageForAnotherDate(string path, DateOnly date)
+    {
+        var match = Regex.Match(path,
+            @"/science/cds/apod/apod/(?<year>\d{4})/(?<month>[a-z]+)/",
+            RegexOptions.IgnoreCase);
+        return match.Success &&
+            (int.Parse(match.Groups["year"].Value, CultureInfo.InvariantCulture) != date.Year ||
+             !match.Groups["month"].Value.Equals(date.ToString("MMMM", CultureInfo.InvariantCulture),
+                 StringComparison.OrdinalIgnoreCase));
     }
 
     // Page text lists several dates (explanation, "yesterday's image"); only the DATE row is reliable and it comes last.

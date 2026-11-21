@@ -10,10 +10,19 @@ using static AstroDay.Services.ApodParsing;
 
 namespace AstroDay.Services;
 
-public sealed class ApodService(LibraryService library, AppSettings settings)
+public sealed class ApodService
 {
-    private static readonly HttpClient Client = CreateHttpClient();
+    private readonly HttpClient _client;
+    private readonly LibraryService _library;
+    private readonly AppSettings _settings;
     private const int MaxAttempts = 3;
+
+    public ApodService(LibraryService library, AppSettings settings, HttpClient? client = null)
+    {
+        _library = library;
+        _settings = settings;
+        _client = client ?? CreateHttpClient();
+    }
 
     private static HttpClient CreateHttpClient()
     {
@@ -33,15 +42,18 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
 
     public async Task<ApodItem?> DownloadDateAsync(DateOnly date, CancellationToken cancellationToken, bool forceRefresh = false)
     {
+        if (date > ApodToday(DateTime.UtcNow))
+            return null;
+
         var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         if (!forceRefresh)
         {
-            var cached = await library.GetByDateAsync(dateText);
+            var cached = await _library.GetByDateAsync(dateText);
             if (cached is not null) return cached;
         }
 
         var errors = new List<string>();
-        foreach (var source in settings.SourceOrder.Distinct())
+        foreach (var source in _settings.SourceOrder.Distinct())
         {
             try
             {
@@ -57,7 +69,14 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
             }
             catch (NoStillImageException noImage)
             {
-                return await library.SaveTextOnlyAsync(noImage.Item);
+                return await _library.SaveTextOnlyAsync(noImage.Item);
+            }
+            catch (HttpRequestException error) when (
+                !cancellationToken.IsCancellationRequested &&
+                source == ApodSources.Api &&
+                error.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                errors.Add($"{ApodSources.DisplayName(source)}: rate limit reached; trying the NASA website instead");
             }
             catch (Exception error) when (!cancellationToken.IsCancellationRequested && error is HttpRequestException or JsonException or InvalidDataException)
             {
@@ -78,7 +97,7 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
     private async Task<ApodItem?> DownloadFromApiAsync(DateOnly date, CancellationToken cancellationToken)
     {
         var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        var apiKey = Uri.EscapeDataString(string.IsNullOrWhiteSpace(settings.ApiKey) ? "DEMO_KEY" : settings.ApiKey.Trim());
+        var apiKey = Uri.EscapeDataString(string.IsNullOrWhiteSpace(_settings.ApiKey) ? "DEMO_KEY" : _settings.ApiKey.Trim());
         var metadataUrl = $"https://api.nasa.gov/planetary/apod?api_key={apiKey}&date={dateText}&thumbs=true";
         using var response = await GetWithRetryAsync(metadataUrl, "NASA APOD API", cancellationToken);
         await using var metadataStream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -119,7 +138,7 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
 
             // NASA may still show yesterday's picture; don't re-download or overwrite a day we already have.
             if (!forceRefresh && actualDate != requestedDate &&
-                await library.GetByDateAsync(actualDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)) is { } existing)
+                await _library.GetByDateAsync(actualDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)) is { } existing)
                 return existing;
 
             var imageUrls = FindApodImageUrls(html, actualDate).ToList();
@@ -186,14 +205,12 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
             var imageUrls = ApodParsing.FindApodImageUrls(content, date).ToList();
             if (imageUrls.Count == 0)
             {
-                if (ApodParsing.IsVideoContent(content))
-                    throw new NoStillImageException(new ApodItem
-                    {
-                        Date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                        Title = titleMatch,
-                        Explanation = ExtractExplanation(text)
-                    });
-                continue;
+                throw new NoStillImageException(new ApodItem
+                {
+                    Date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    Title = titleMatch,
+                    Explanation = ExtractExplanation(text)
+                });
             }
 
             return await DownloadAndSaveAsync(new ApodItem
@@ -226,7 +243,7 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
                     throw new InvalidDataException($"NASA image URL returned unexpected content type '{mediaType}'.");
                 await using var imageStream = await imageResponse.Content.ReadAsStreamAsync(cancellationToken);
                 item.ImageUrl = parsedUrl.ToString();
-                return await library.SaveDownloadAsync(item, imageStream, cancellationToken);
+                return await _library.SaveDownloadAsync(item, imageStream, cancellationToken);
             }
             catch (HttpRequestException exception) when (!cancellationToken.IsCancellationRequested)
             {
@@ -241,14 +258,14 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
         throw new InvalidDataException("NASA returned no downloadable image. The high-resolution and standard image URLs both failed.", lastDownloadError);
     }
 
-    private static async Task<HttpResponseMessage> GetWithRetryAsync(string url, string stage, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> GetWithRetryAsync(string url, string stage, CancellationToken cancellationToken)
     {
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
             HttpResponseMessage response;
             try
             {
-                response = await Client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                response = await _client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             }
             catch (HttpRequestException) when (attempt < MaxAttempts && !cancellationToken.IsCancellationRequested)
             {

@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="xunit.v3" Version="3.0.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1">
@@ -21,6 +22,7 @@
     <Compile Include="..\Models\ApodItem.cs" Link="Models\ApodItem.cs" />
     <Compile Include="..\Models\ApodSources.cs" Link="Models\ApodSources.cs" />
     <Compile Include="..\Services\ApiKeyProtection.cs" Link="Services\ApiKeyProtection.cs" />
+    <Compile Include="..\Services\ApodService.cs" Link="Services\ApodService.cs" />
     <Compile Include="..\Services\ApodParsing.cs" Link="Services\ApodParsing.cs" />
     <Compile Include="..\Services\LibraryService.cs" Link="Services\LibraryService.cs" />
     <Compile Include="..\Services\AtomicJsonFile.cs" Link="Services\AtomicJsonFile.cs" />

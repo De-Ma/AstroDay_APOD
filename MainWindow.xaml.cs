@@ -213,8 +213,8 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            StatusText.Text = "NASA check failed";
-            MessageBox.Show(this, exception.Message, "Could not update today's image", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ErrorReporter.Log(exception, "Checking for NASA APOD updates");
+            StatusText.Text = "No still image is available right now; keeping the current desktop.";
         }
         finally
         {
@@ -256,9 +256,9 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            StatusText.Text = "Could not load selected date";
+            ErrorReporter.Log(exception, $"Loading APOD date {requestedDateText}");
+            StatusText.Text = "No still image is available for this date";
             await RefreshAsync();
-            MessageBox.Show(this, exception.Message, "Could not load this APOD date", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally { SetImageLoading(false); }
     }
@@ -449,8 +449,9 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            StatusText.Text = "Reload failed";
-            MessageBox.Show(this, exception.Message, "Could not reload this image", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ErrorReporter.Log(exception, $"Reloading APOD date {dateText}");
+            StatusText.Text = "No still image is available for this date";
+            await RefreshAsync();
         }
         finally { SetImageLoading(false); }
     }

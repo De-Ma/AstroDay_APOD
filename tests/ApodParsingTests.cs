@@ -70,6 +70,36 @@ public sealed class ApodParsingTests
     }
 
     [Fact]
+    public void FindApodImageUrls_AcceptsReusedMissionAssetsOutsideDateFolders()
+    {
+        const string html = """
+            <a href="https://assets.science.nasa.gov/content/dam/science/missions/hubble/galaxies/irregular/NGC%204449.jpg">
+              <img src="https://assets.science.nasa.gov/dynamicimage/assets/science/missions/hubble/galaxies/irregular/NGC%204449.jpg?w=2048&amp;h=1320" />
+            </a>
+            """;
+
+        var urls = ApodParsing.FindApodImageUrls(html, new DateOnly(2026, 11, 11)).ToArray();
+
+        Assert.Equal(
+        [
+            "https://assets.science.nasa.gov/content/dam/science/missions/hubble/galaxies/irregular/NGC%204449.jpg",
+            "https://assets.science.nasa.gov/dynamicimage/assets/science/missions/hubble/galaxies/irregular/NGC%204449.jpg?w=2400"
+        ], urls);
+    }
+
+    [Fact]
+    public void FindApodImageUrls_AcceptsApodAssetsOutsideYearMonthFolders()
+    {
+        const string html = """
+            <img src="https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/Hverir_Vetter_1300.jpg?w=1300" />
+            """;
+
+        Assert.Equal(
+            "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/Hverir_Vetter_1300.jpg",
+            ApodParsing.FindApodImageUrls(html, new DateOnly(2026, 10, 31)).First());
+    }
+
+    [Fact]
     public void FindApodImageUrls_ReturnsNothingForVideoOnlyContent()
     {
         const string html = "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2026/august/Launch.mp4";
@@ -82,6 +112,8 @@ public sealed class ApodParsingTests
     public void IsVideoContent_DetectsEmbeddedPlayers()
     {
         Assert.True(ApodParsing.IsVideoContent("<iframe src=\"https://www.youtube.com/embed/abc\"></iframe>"));
+        Assert.True(ApodParsing.IsVideoContent("<iframe src=\"https://science.nasa.gov/embed/abc\"></iframe>"));
+        Assert.True(ApodParsing.IsVideoContent("<video src=\"video.webm\"></video>"));
         Assert.False(ApodParsing.IsVideoContent("<img src=\"a.jpg\" />"));
     }
 

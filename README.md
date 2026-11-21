@@ -14,7 +14,9 @@ Images shown are from NASA's Astronomy Picture of the Day (credit: NASA and the 
 
 - Today preview (double-click opens the image), date picker, and a library of downloaded images. Days are resolved in US Eastern time, as NASA publishes them.
 - Configurable image sources, tried in your chosen order: NASA API (api key), NASA article search (works for past days without a key), and the NASA APOD webpage (today only).
+- NASA API HTTP 429 rate limits are treated as recoverable and immediately fall through to the NASA article website/image scraper.
 - Days without a still image (videos) are kept as text-only entries with title and description; **Go to APOD** opens the day on NASA's site.
+- Missing, future, and unsupported-media APOD dates stay inline in the Today view without interrupting date browsing with an error dialog. NASA article images are recognized even when stored outside the traditional APOD year/month asset folders.
 - Library cards: double-click opens the image, and the three-dot menu can set it as the desktop wallpaper, open it in Explorer, go to APOD, reload it, or remove it.
 - Desktop wallpaper placement can either fill the screen (cropping when necessary) or fit the whole image while preserving its aspect ratio.
 - If the latest APOD is not a still image, automatic checks search at most five previous days before leaving the current desktop unchanged.
@@ -87,7 +89,7 @@ The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your 
 
 ## About
 
-- Product version: `1.3.0`
+- Product version: `1.4.0-test`
 - Application creation date: `2026-09-30`
 - License: Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The license does not grant rights to the AstroDay name.
 
@@ -107,4 +109,4 @@ The test suite covers favorite selection, DPAPI round-tripping, migration of leg
 - Verify desktop and lock-screen behavior on supported Windows versions and a managed-device scenario.
 - Review `.gitignore` and make sure no API key, personal images, settings, logs, or build output will be committed.
 - Build and test the published artifact, not only the development build.
-- Add `docs/RELEASE-v<version>.md`, then push a matching `v`-prefixed tag (for example `v1.3.0`). The Release workflow validates, publishes, builds the installer and zip, and creates the GitHub release.
+- Add `docs/RELEASE-v<version>.md`, then push a matching `v`-prefixed tag (for example `v1.4.0-test`). Test builds use a `-test` suffix and are published as GitHub prereleases.

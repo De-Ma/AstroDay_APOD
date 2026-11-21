@@ -58,7 +58,9 @@ jobs:
         run: |
           $installer = "AstroDay-Setup-v$($env:GITHUB_REF_NAME.TrimStart('v')).exe"
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          gh release create "$env:GITHUB_REF_NAME" "AstroDay-win-x64.zip" $installer `
+          $extraArgs = @()
+          if ($version.Contains('-')) { $extraArgs += '--prerelease' }
+          gh release create "$env:GITHUB_REF_NAME" "AstroDay-win-x64.zip" $installer $extraArgs `
             --verify-tag `
             --notes-file "docs\RELEASE-v$version.md" `
             --title "AstroDay $env:GITHUB_REF_NAME"
