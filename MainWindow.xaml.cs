@@ -767,7 +767,10 @@ public partial class MainWindow : Window
 
     private ApodItem? GetSelectedImage()
     {
-        var item = GalleryList.SelectedItem as ApodItem ?? _featuredItem;
+        var item = ActiveImageSelector.Select(
+            MainTabs.SelectedIndex == 1,
+            GalleryList.SelectedItem as ApodItem,
+            _featuredItem);
         if (item is { HasImage: false })
         {
             StatusText.Text = "This day has no still image to apply";

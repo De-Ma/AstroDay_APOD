@@ -363,7 +363,9 @@
                       <TextBlock Text="{Binding Date}" Foreground="{DynamicResource AccentBrush}" FontSize="11" />
                       <TextBlock Grid.Row="1" Text="{Binding Title}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Margin="0,3,0,3" />
                       <StackPanel Grid.Row="2" Orientation="Horizontal">
-                        <Button Content="{Binding IsFavorite, Converter={StaticResource FavoriteLabelConverter}}" Tag="{Binding Date}" Click="GalleryFavorite_Click" Height="26" MinHeight="26" Padding="7,2" Margin="0,0,5,0" />
+                        <Button Content="{Binding IsFavorite, Converter={StaticResource FavoriteLabelConverter}}"
+                                ToolTip="{Binding IsFavorite, Converter={StaticResource FavoriteLabelConverter}, ConverterParameter=tooltip}"
+                                Tag="{Binding Date}" Click="GalleryFavorite_Click" Height="26" MinHeight="26" Padding="7,2" Margin="0,0,5,0" />
                         <Button Content="⋯" ToolTip="More" Tag="{Binding Date}" Click="GalleryMore_Click" Height="26" MinHeight="26" Width="28" MinWidth="28" Padding="0,0,0,4" FontWeight="Bold">
                           <Button.ContextMenu>
                             <ContextMenu Style="{StaticResource ThemedContextMenu}">

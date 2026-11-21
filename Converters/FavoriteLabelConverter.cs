@@ -6,8 +6,12 @@ namespace AstroDay.Converters;
 
 public sealed class FavoriteLabelConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-        value is true ? "★  Favorite" : "☆  Add favorite";
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (parameter is string mode && mode.Equals("tooltip", StringComparison.OrdinalIgnoreCase))
+            return value is true ? "Remove favorite" : "Add favorite";
+        return value is true ? "★  Favorite" : "☆  Add favorite";
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();

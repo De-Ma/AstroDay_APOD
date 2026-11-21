@@ -8,15 +8,16 @@ Updated: 2026-11-21
 - Use `%USERPROFILE%\.dotnet10\dotnet.exe` (SDK 10.0.401). `dotnet` on PATH resolves to SDK 8, while `global.json` requires 10.0.100.
 - Git is on `main` with `De-Ma/AstroDay_APOD` configured as `origin`; author `DMA` (repo-local config). Licensed under Apache 2.0 (`LICENSE`, `NOTICE`, copyright DMA).
 
-## APOD edge-case fixes in v1.4.1-test
+## Completed 2026-11-21 (v1.4.1)
 
 - **No disruptive popups:** expected no-image, video, missing, future-date, and download/parser failures are shown inline while browsing or reloading dates and written to the local error log.
 - **NASA asset parsing:** APOD still images are accepted from trusted mission/content asset paths outside the traditional `apod/{year}/{month}` folders. Date-specific APOD paths for another day are still rejected.
 - **Reported dates:** 2026-10-31 and 2026-11-11 now resolve to the verified NASA JPEG assets. 2026-11-29 is a future/unpublished date as of 2026-11-21, so it returns the inline no-still-image state without a network search.
 - **API rate limit fallback:** `ApodService` now treats NASA API HTTP 429 as recoverable, immediately continues to the website article scraper, and has an injected HTTP handler seam for deterministic fallback tests.
 - **Tests:** parser coverage was added for mission-library assets, APOD assets without year/month folders, and expanded video/embed detection.
-- **Test release:** prepared as `v1.4.0-test`; the release workflow marks hyphenated versions as GitHub prereleases.
+- **Stable release:** v1.4.1 promotes the tested APOD fixes; hyphenated versions remain available as GitHub prereleases.
 - **Additional reported dates:** 2026-10-25 accepts a reused 2021 APOD hero image, 2026-11-16 accepts its Webb mission asset, and 2026-08-12 uses the WordPress search API/article-ID fallback when the image-article search omits it.
+- **Post-test UI fixes:** favorited library buttons now show “Remove favorite” on hover. Manual desktop and lock-screen apply actions follow the active tab, so a stale library selection can no longer override the currently displayed Today image.
 
 ## Completed 2026-11-21 (v1.3.0)
 
@@ -60,7 +61,7 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 
 ## Current status
 
-- `dotnet format --verify-no-changes`: pass. Release tests: 64 passed. Release build: 0 warnings, 0 errors.
+- `dotnet format --verify-no-changes`: pass. Release tests: 66 passed. Release build: 0 warnings, 0 errors. Stable v1.4.1 package validation completed.
 - `ApodParsing.cs`, `LibraryService.cs` and `ApodSources.cs` are linked into `tests/AstroDay.Tests.csproj`; new source files used by tests must be added there too.
 - The app was last launched from `bin\Debug` without startup errors.
 
@@ -77,5 +78,5 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 
 ## Next recommended task
 
-1. Test the v1.4.1 prerelease, especially 2026-10-25, 2026-11-16, and 2026-08-12.
+1. Monitor the stable v1.4.1 release for APOD source edge cases and update the parser as new NASA layouts appear.
 2. Consider code signing or another Code Integrity acceptance path for the distributed release artifact.
