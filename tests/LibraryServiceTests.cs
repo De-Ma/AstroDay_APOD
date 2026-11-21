@@ -114,4 +114,29 @@ public sealed class LibraryServiceTests
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
+
+    [Fact]
+    public async Task SetLibraryDirectory_PreservesSourceAndExistingTargetContent()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var (library, directory) = Create();
+        try
+        {
+            var saved = await library.SaveDownloadAsync(Item("2026-10-01"), Bytes("source image"), token);
+            var target = Path.Combine(directory, "target");
+            Directory.CreateDirectory(target);
+            var targetImage = Path.Combine(target, Path.GetFileName(saved.FilePath));
+            await File.WriteAllTextAsync(targetImage, "target image", token);
+            await File.WriteAllTextAsync(Path.Combine(target, "library.json"), "target catalogue", token);
+
+            await library.SetLibraryDirectoryAsync(target);
+
+            Assert.True(File.Exists(saved.FilePath));
+            Assert.Equal("source image", await File.ReadAllTextAsync(saved.FilePath, token));
+            Assert.Equal("source image", await File.ReadAllTextAsync(targetImage, token));
+            Assert.Equal("target image", await File.ReadAllTextAsync(Directory.GetFiles(target, "*.jpg.preserved-*").Single(), token));
+            Assert.Equal("target catalogue", await File.ReadAllTextAsync(Directory.GetFiles(target, "library.json.preserved-*").Single(), token));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
 }

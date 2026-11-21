@@ -22,6 +22,7 @@ Images shown are from NASA's Astronomy Picture of the Day (credit: NASA and the 
 - Favorites collection, visible favorites filter, and a shared **Favorites only** switch next to the apply buttons.
 - When Favorites only is active, random favorites are used for timed wallpaper rotation and manual apply actions. The interval is configurable in minutes (60 by default); lock-screen rotation is optional.
 - Custom image-library location, **Open folder** shortcuts, sign-in startup option, and close-to-tray preference.
+- The installer supports an image-library location, safe in-place upgrades, icon-bearing shortcuts, optional sign-in startup, and launch-after-install in a window (default).
 - Dark UI with six selectable accents (Mint, Sky, Violet, Amber, Coral, Lime), toggle-switch settings, themed scrollbars, and a planet-orbit loader.
 - NASA API key protected with Windows DPAPI for the current user; existing plaintext keys are migrated when loaded.
 - Checks GitHub Releases for updates at most once per day, with a manual **Check for updates** action in Settings and the tray menu.
@@ -63,12 +64,13 @@ Create a self-contained Windows x64 build with managed assemblies bundled into t
 dotnet publish AstroDay.csproj --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true
 ```
 
-Output is under `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish`. WPF may emit native support DLLs (and a PDB) beside `AstroDay.exe`; distribute the complete publish folder. The release workflow also builds an Inno Setup installer with a selectable install directory and optional Windows sign-in and tray-start tasks. Test the published executable and installer on the Windows version you intend to support. Do not move a manually published executable after enabling sign-in startup; if you do, turn startup off and on again from Settings.
+Output is under `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish`. WPF may emit native support DLLs (and a PDB) beside `AstroDay.exe`; distribute the complete publish folder. The release workflow also builds an Inno Setup installer with selectable program and image-library directories, the AstroDay orbit icon, optional Windows sign-in and desktop shortcuts, and launch-after-install enabled by default. Upgrades detect the previous version and stop AstroDay before replacing application files. The library remains outside the installer file set; changing folders preserves the old library and backs up conflicting target content. Test the published executable and installer on the Windows version you intend to support. Do not move a manually published executable after enabling sign-in startup; if you do, turn startup off and on again from Settings.
 
 ## Data and security
 
 - Settings are stored at `%LOCALAPPDATA%\AstroDay\settings.json`.
 - NASA images and `library.json` are stored in the selected library folder, defaulting to `Pictures\AstroDay`.
+- Installer upgrades and uninstalls never delete the selected image-library folder or its contents. If a folder is changed, source and conflicting destination files are preserved.
 - A user-provided NASA API key is protected using Windows DPAPI with current-user scope. This protects it at rest from other Windows users, but not from malware or processes running as the same user. Do not commit settings, API keys, library contents, or logs.
 - Downloads require HTTPS, image URLs must be on NASA-owned hosts, returned APOD dates are validated, and a single image is limited to 100 MB.
 - JSON settings and library indexes use same-directory temporary-file replacement. A malformed settings file or image index is preserved as a timestamped `.corrupt-*` recovery copy when possible.
@@ -85,7 +87,7 @@ The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your 
 
 ## About
 
-- Product version: `1.2.0`
+- Product version: `1.3.0`
 - Application creation date: `2026-09-30`
 - License: Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The license does not grant rights to the AstroDay name.
 
@@ -93,7 +95,7 @@ The Settings drawer also shows the product version and creation date.
 
 ## Quality checks
 
-The test suite covers favorite selection, DPAPI round-tripping, migration of legacy plaintext keys, malformed settings recovery, atomic JSON replacement, APOD page/article parsing, the Eastern-time APOD day, source-order persistence, and library save/reload/remove including text-only entries. The window code and the download/fallback loop have no automated tests. GitHub Actions runs formatting verification and the Release test suite on Windows for pushes and pull requests.
+The test suite covers favorite selection, DPAPI round-tripping, migration of legacy plaintext keys, malformed settings recovery, atomic JSON replacement, APOD page/article parsing, the Eastern-time APOD day, recent-image fallback, source-order persistence, and library save/reload/remove including text-only entries and data-preserving relocation. The window code and the download/fallback loop have no automated HTTP/UI tests. GitHub Actions runs formatting verification and the Release test suite on Windows for pushes and pull requests.
 
 ## Release checklist
 
@@ -101,8 +103,8 @@ The test suite covers favorite selection, DPAPI round-tripping, migration of leg
 - Confirm the GitHub Actions workflow passes on Windows and publish from a clean tagged commit.
 - Test a clean first launch, settings migration, an API outage (source fallback order), a video day, and browsing cached and uncached dates.
 - Verify maximizing does not cover the taskbar.
-- Verify favorites interval and target behavior, close-to-tray, startup registration, library relocation, and Explorer shortcut.
+- Verify favorites interval and target behavior, close-to-tray, startup registration, installer library selection, upgrade preservation, launch-after-install options, and Explorer shortcut.
 - Verify desktop and lock-screen behavior on supported Windows versions and a managed-device scenario.
 - Review `.gitignore` and make sure no API key, personal images, settings, logs, or build output will be committed.
 - Build and test the published artifact, not only the development build.
-- Update `docs/RELEASE-v1.2.0.md` for the version being released, then push a matching `v`-prefixed tag (for example `v1.2.0`). The Release workflow validates, publishes, builds the installer and zip, and creates the GitHub release.
+- Add `docs/RELEASE-v<version>.md`, then push a matching `v`-prefixed tag (for example `v1.3.0`). The Release workflow validates, publishes, builds the installer and zip, and creates the GitHub release.

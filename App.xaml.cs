@@ -61,6 +61,20 @@ public partial class App : Application
             Directory.CreateDirectory(appData);
             _settings = await SettingsService.LoadAsync(Path.Combine(appData, "settings.json"));
             ThemeService.Apply(_settings.ThemeName);
+            var configureOnly = e.Args.Contains("--configure-only", StringComparer.OrdinalIgnoreCase);
+            var libraryArgument = GetArgumentValue(e.Args, "--library");
+            if (configureOnly)
+            {
+                if (string.IsNullOrWhiteSpace(libraryArgument))
+                    throw new ArgumentException("The installer did not provide a library folder.");
+                var configuredLibrary = new LibraryService(_settings.LibraryDirectory, Path.Combine(appData, "settings.json"), _settings);
+                await configuredLibrary.SetLibraryDirectoryAsync(libraryArgument);
+                await SettingsService.SaveAsync(Path.Combine(appData, "settings.json"), _settings);
+                SettingsService.RememberLibraryDirectory(_settings.LibraryDirectory);
+                Shutdown();
+                return;
+            }
+            SettingsService.RememberLibraryDirectory(_settings.LibraryDirectory);
             try
             {
                 _settings.RunAtStartup |= StartupService.IsEnabled();
@@ -91,6 +105,15 @@ public partial class App : Application
             System.Windows.MessageBox.Show($"AstroDay could not start. Details were saved to the local log.\n\n{exception.Message}", "AstroDay startup failed", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    private static string? GetArgumentValue(string[] arguments, string name)
+    {
+        var option = name + "=";
+        foreach (var argument in arguments)
+            if (argument.StartsWith(option, StringComparison.OrdinalIgnoreCase))
+                return argument[option.Length..].Trim('"');
+        return null;
     }
 
     private void SetupTrayIcon()

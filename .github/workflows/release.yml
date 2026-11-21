@@ -29,6 +29,9 @@ jobs:
           if ("v$version" -ne $env:GITHUB_REF_NAME) {
             throw "Tag $env:GITHUB_REF_NAME does not match project version $version."
           }
+          if (-not (Test-Path "docs\RELEASE-v$version.md")) {
+            throw "Release notes for version $version are missing."
+          }
       - name: Publish
         shell: pwsh
         run: |
@@ -54,7 +57,8 @@ jobs:
         shell: pwsh
         run: |
           $installer = "AstroDay-Setup-v$($env:GITHUB_REF_NAME.TrimStart('v')).exe"
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
           gh release create "$env:GITHUB_REF_NAME" "AstroDay-win-x64.zip" $installer `
             --verify-tag `
-            --notes-file "docs\RELEASE-v1.2.0.md" `
+            --notes-file "docs\RELEASE-v$version.md" `
             --title "AstroDay $env:GITHUB_REF_NAME"

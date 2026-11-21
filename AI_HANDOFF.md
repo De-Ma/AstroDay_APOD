@@ -8,7 +8,16 @@ Updated: 2026-11-21
 - Use `%USERPROFILE%\.dotnet10\dotnet.exe` (SDK 10.0.401). `dotnet` on PATH resolves to SDK 8, while `global.json` requires 10.0.100.
 - Git is on `main` with `De-Ma/AstroDay_APOD` configured as `origin`; author `DMA` (repo-local config). Licensed under Apache 2.0 (`LICENSE`, `NOTICE`, copyright DMA).
 
-## Completed 2026-11-21 (v1.2.0 pending)
+## Completed 2026-11-21 (v1.3.0)
+
+- **Shortcut icon:** an original mint/orbit planet icon was added as a multi-resolution `.ico` and is embedded in the executable, installer, and shortcuts.
+- **Library choice:** the installer has a dedicated image-library page. It preselects the existing registry/settings path on upgrade and configures `library.json` plus downloaded-image storage there.
+- **Safe upgrades:** setup detects the installed version, presents update details, stops AstroDay before file replacement, and performs an in-place update through the same AppId.
+- **Data preservation:** library files are outside the uninstall file list. Relocation preserves the old library and renames conflicting target images/catalogues instead of deleting or overwriting them.
+- **Launch after install:** AstroDay starts normally by default after setup; the task can be unchecked.
+- **Release:** prepared as v1.3.0 with version-specific release notes and dynamic release workflow note selection.
+
+## Completed 2026-11-21 (v1.2.0)
 
 - **Readable themed controls:** the wallpaper placement selector now uses a dark custom ComboBox template and the current accent throughout, including its popup.
 - **Library selection:** selected cards use a thicker accent border and faint shadow.
@@ -41,14 +50,14 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 
 ## Current status
 
-- `dotnet format --verify-no-changes`: pass. Release tests: 56 passed. Self-contained win-x64 publish: pass. Installer compilation is performed by the Release workflow.
+- `dotnet format --verify-no-changes`: pass. Release tests: 57 passed. Self-contained win-x64 publish and local installer compilation: pass. GitHub CI and release publication are automated from the matching version tag.
 - `ApodParsing.cs`, `LibraryService.cs` and `ApodSources.cs` are linked into `tests/AstroDay.Tests.csproj`; new source files used by tests must be added there too.
 - The app was last launched from `bin\Debug` without startup errors.
 
 ## Known issues
 
 - Window code, the source fallback loop in `ApodService`, and the scheduler have no automated tests (they need HTTP/UI seams).
-- The reported accent-colour "different style" issue was not fully understood; check the settings look.
+- Installer signing is not configured, so Windows may show an unsigned-publisher warning.
 - Go to APOD for old dates relies on article search; the fallback archive page (`/apod/archive/`) only lists about 15 recent days.
 - Library entries created by earlier buggy builds may still hold NASA-logo images; use Reload or Remove from library.
 - The order of switched-off sources is not persisted (they return to the end of the list).

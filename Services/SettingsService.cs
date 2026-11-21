@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AstroDay.Models;
+using Microsoft.Win32;
 
 namespace AstroDay.Services;
 
@@ -10,6 +11,13 @@ public static class SettingsService
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
     public static string? LastLoadWarning { get; private set; }
+    public const string PreferencesRegistryPath = @"Software\AstroDay";
+
+    public static void RememberLibraryDirectory(string directory)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(PreferencesRegistryPath);
+        key.SetValue("LibraryDirectory", Path.GetFullPath(directory), RegistryValueKind.String);
+    }
 
     public static async Task<AppSettings> LoadAsync(string path, CancellationToken cancellationToken = default)
     {

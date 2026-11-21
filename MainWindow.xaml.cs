@@ -517,6 +517,7 @@ public partial class MainWindow : Window
         try
         {
             await _library.SetLibraryDirectoryAsync(dialog.SelectedPath);
+            SettingsService.RememberLibraryDirectory(_library.DirectoryPath);
             LibraryPathText.Text = _library.DirectoryPath;
             await RefreshAsync();
             StatusText.Text = "Library location updated";

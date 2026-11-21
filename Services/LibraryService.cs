@@ -192,16 +192,26 @@ public sealed class LibraryService
                 if (!File.Exists(item.FilePath)) continue;
                 var destination = Path.Combine(target, Path.GetFileName(item.FilePath));
                 if (!string.Equals(Path.GetFullPath(item.FilePath), destination, StringComparison.OrdinalIgnoreCase))
-                    File.Copy(item.FilePath, destination, true);
+                {
+                    if (File.Exists(destination))
+                        File.Move(destination, CreatePreservedPath(destination), false);
+                    File.Copy(item.FilePath, destination, false);
+                }
                 item.FilePath = destination;
             }
             DirectoryPath = target;
             _settings.LibraryDirectory = target;
+            var targetIndexPath = Path.Combine(target, "library.json");
+            if (File.Exists(targetIndexPath))
+                File.Move(targetIndexPath, CreatePreservedPath(targetIndexPath), false);
             await SaveIndexAsync();
             await SettingsService.SaveAsync(_settingsPath, _settings);
         }
         finally { _gate.Release(); }
     }
+
+    private static string CreatePreservedPath(string path) =>
+        path + ".preserved-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff", CultureInfo.InvariantCulture);
 
     private async Task LoadIndexAsync()
     {
