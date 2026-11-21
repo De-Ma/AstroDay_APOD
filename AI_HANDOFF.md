@@ -8,7 +8,16 @@ Updated: 2026-11-21
 - Use `%USERPROFILE%\.dotnet10\dotnet.exe` (SDK 10.0.401). `dotnet` on PATH resolves to SDK 8, while `global.json` requires 10.0.100.
 - Git is on `main` with `De-Ma/AstroDay_APOD` configured as `origin`; author `DMA` (repo-local config). Licensed under Apache 2.0 (`LICENSE`, `NOTICE`, copyright DMA).
 
-## Completed 2026-11-21
+## Completed 2026-11-21 (v1.2.0 pending)
+
+- **Readable themed controls:** the wallpaper placement selector now uses a dark custom ComboBox template and the current accent throughout, including its popup.
+- **Library selection:** selected cards use a thicker accent border and faint shadow.
+- **Bounded fallback:** automatic APOD checks search today plus at most five prior days for a still image; after that the current desktop is kept.
+- **Installer:** the Inno Setup installer supports a selectable per-user directory, optional Windows sign-in startup, optional launch minimized to the tray, and start-menu/desktop shortcuts.
+- **Updates:** the Settings update area exposes repository/release links and a direct installer download when the latest release contains an installer asset.
+- **Version visibility:** the window title bar shows the installed version badge.
+
+## Completed 2026-11-21 (v1.1.0)
 
 - **Library wallpaper action:** the three-dot card menu can set a still image as the desktop background/wallpaper.
 - **Wallpaper placement:** desktop images use a persisted Fill or Fit placement setting; Fit preserves the whole image and aspect ratio, while Fill crops as needed.
@@ -32,7 +41,7 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 
 ## Current status
 
-- `dotnet format --verify-no-changes`: pass. Release tests: 54 passed. Self-contained win-x64 publish: pass.
+- `dotnet format --verify-no-changes`: pass. Release tests: 56 passed. Self-contained win-x64 publish: pass. Installer compilation is performed by the Release workflow.
 - `ApodParsing.cs`, `LibraryService.cs` and `ApodSources.cs` are linked into `tests/AstroDay.Tests.csproj`; new source files used by tests must be added there too.
 - The app was last launched from `bin\Debug` without startup errors.
 

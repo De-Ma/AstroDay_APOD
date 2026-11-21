@@ -25,6 +25,12 @@ public sealed class ApodService(LibraryService library, AppSettings settings)
     public Task<ApodItem?> DownloadTodayAsync(CancellationToken cancellationToken) =>
         DownloadDateAsync(ApodToday(DateTime.UtcNow), cancellationToken);
 
+    public Task<ApodItem?> DownloadLatestStillImageAsync(CancellationToken cancellationToken) =>
+        RecentImageFinder.FindLatestAsync(
+            ApodToday(DateTime.UtcNow),
+            (date, token) => DownloadDateAsync(date, token),
+            cancellationToken);
+
     public async Task<ApodItem?> DownloadDateAsync(DateOnly date, CancellationToken cancellationToken, bool forceRefresh = false)
     {
         var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

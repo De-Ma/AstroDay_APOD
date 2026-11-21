@@ -8,9 +8,15 @@ using System.Text.Json.Serialization;
 
 namespace AstroDay.Services;
 
-public sealed record UpdateCheckResult(Version CurrentVersion, Version LatestVersion, string ReleaseUrl, string ReleaseName)
+public sealed record UpdateCheckResult(
+    Version CurrentVersion,
+    Version LatestVersion,
+    string ReleaseUrl,
+    string ReleaseName,
+    string? InstallerUrl)
 {
     public bool IsUpdateAvailable => LatestVersion > CurrentVersion;
+    public static string RepositoryUrl => "https://github.com/De-Ma/AstroDay_APOD";
 }
 
 public sealed class UpdateService
@@ -38,8 +44,12 @@ public sealed class UpdateService
         if (release is null || !TryParseVersion(release.TagName, out var latestVersion) ||
             string.IsNullOrWhiteSpace(release.HtmlUrl))
             throw new InvalidDataException("The GitHub release response did not contain a valid version and release URL.");
+        var installerUrl = release.Assets.FirstOrDefault(asset =>
+            asset.Name.StartsWith("AstroDay-Setup-", StringComparison.OrdinalIgnoreCase) &&
+            asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))?.BrowserDownloadUrl;
         return new UpdateCheckResult(currentVersion, latestVersion, release.HtmlUrl,
-            string.IsNullOrWhiteSpace(release.Name) ? release.TagName : release.Name);
+            string.IsNullOrWhiteSpace(release.Name) ? release.TagName : release.Name,
+            installerUrl);
     }
 
     public static Version GetCurrentVersion() =>
@@ -70,5 +80,17 @@ public sealed class UpdateService
 
         [JsonPropertyName("name")]
         public string? Name { get; set; }
+
+        [JsonPropertyName("assets")]
+        public List<ReleaseAsset> Assets { get; set; } = [];
+    }
+
+    private sealed class ReleaseAsset
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [JsonPropertyName("browser_download_url")]
+        public string BrowserDownloadUrl { get; set; } = "";
     }
 }

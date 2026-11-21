@@ -83,6 +83,9 @@
       <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="16,0,0,0" shell:WindowChrome.IsHitTestVisibleInChrome="True">
         <Image Source="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" Width="20" Height="20" Margin="0,0,9,0" />
         <TextBlock Text="AstroDay" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" />
+        <Border Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="7" Padding="5,1" Margin="8,0,0,0">
+          <TextBlock x:Name="VersionText" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" FontSize="10" FontWeight="SemiBold" />
+        </Border>
       </StackPanel>
       <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
         <Button Style="{StaticResource ChromeButtonStyle}" Content="—" ToolTip="Minimize" Click="Minimize_Click" />
@@ -273,7 +276,7 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <Border Width="210" Height="240" CornerRadius="0" ClipToBounds="True" BorderThickness="1">
+                <Border Width="210" Height="240" CornerRadius="0" ClipToBounds="False" BorderThickness="1">
                   <Border.Style>
                     <Style TargetType="Border">
                       <Setter Property="BorderBrush" Value="Transparent" />
@@ -290,9 +293,14 @@
                           <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                          <Setter Property="BorderBrush" Value="{DynamicResource TextBrush}" />
-                          <Setter Property="BorderThickness" Value="4" />
+                          <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                          <Setter Property="BorderThickness" Value="6" />
                           <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                          <Setter Property="Effect">
+                            <Setter.Value>
+                              <DropShadowEffect Color="#000000" BlurRadius="16" ShadowDepth="0" Opacity="0.85" />
+                            </Setter.Value>
+                          </Setter>
                         </DataTrigger>
                         <MultiDataTrigger>
                           <MultiDataTrigger.Conditions>
@@ -466,7 +474,13 @@
           <Separator Margin="0,22,0,18" Background="{DynamicResource RaisedBrush}" />
           <TextBlock Style="{StaticResource SettingsHeader}" Text="ABOUT" Margin="0,0,0,8" />
           <TextBlock x:Name="AboutText" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-          <Button Content="Check for updates" Click="CheckUpdates_Click" HorizontalAlignment="Left" Margin="0,10,0,0" />
+          <TextBlock x:Name="UpdateText" Foreground="{DynamicResource MutedBrush}" Text="Update status: not checked this session." TextWrapping="Wrap" Margin="0,8,0,0" />
+          <WrapPanel Margin="0,8,0,0">
+            <Button Content="Check for updates" Click="CheckUpdates_Click" />
+            <Button Content="Repository" Click="OpenRepository_Click" />
+            <Button x:Name="ViewReleaseButton" Content="View release" Click="ViewRelease_Click" Visibility="Collapsed" />
+            <Button x:Name="DownloadUpdateButton" Style="{StaticResource PrimaryButtonStyle}" Content="Download installer" Click="DownloadUpdate_Click" Visibility="Collapsed" Margin="0,8,8,0" />
+          </WrapPanel>
         </StackPanel>
       </ScrollViewer>
     </Border>

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -62,7 +61,11 @@ public partial class App : Application
             Directory.CreateDirectory(appData);
             _settings = await SettingsService.LoadAsync(Path.Combine(appData, "settings.json"));
             ThemeService.Apply(_settings.ThemeName);
-            try { StartupService.SetEnabled(_settings.RunAtStartup); }
+            try
+            {
+                _settings.RunAtStartup |= StartupService.IsEnabled();
+                StartupService.SetEnabled(_settings.RunAtStartup);
+            }
             catch (Exception exception)
             {
                 _settings.RunAtStartup = false;
@@ -125,6 +128,7 @@ public partial class App : Application
 
             if (result is not { IsUpdateAvailable: true })
             {
+                await Dispatcher.InvokeAsync(() => _mainWindow?.SetUpdateResult(result));
                 if (userInitiated)
                 {
                     await Dispatcher.InvokeAsync(() => _mainWindow?.SetUpdateStatus("AstroDay is up to date"));
@@ -135,19 +139,12 @@ public partial class App : Application
             }
 
             var message = $"AstroDay {result.LatestVersion} is available. You are using {result.CurrentVersion}.";
+            await Dispatcher.InvokeAsync(() => _mainWindow?.SetUpdateResult(result));
             if (userInitiated || _mainWindow is not null)
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
                     _mainWindow?.SetUpdateStatus($"Update available · {result.LatestVersion}");
-                    if (System.Windows.MessageBox.Show(
-                        message + "\n\nOpen the release page?",
-                        "AstroDay update available",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Information) == MessageBoxResult.Yes)
-                    {
-                        Process.Start(new ProcessStartInfo(result.ReleaseUrl) { UseShellExecute = true });
-                    }
                 });
             }
             else
@@ -191,12 +188,15 @@ public partial class App : Application
                 await Dispatcher.InvokeAsync(() => _mainWindow?.SetImageLoading(true));
             try
             {
-                var item = await _apod.DownloadTodayAsync(CancellationToken.None);
-                _todayAvailable = item?.Date == ApodParsing.ApodToday(DateTime.UtcNow).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
-                if (!_settings.FavoritesOnly)
+                var todayText = ApodParsing.ApodToday(DateTime.UtcNow).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                var item = await _apod.DownloadLatestStillImageAsync(CancellationToken.None);
+                _todayAvailable = item?.Date == todayText;
+                if (!_settings.FavoritesOnly && item is not null)
                     await ApplyAutomaticSourceAsync(item);
-                if (item is null or { HasImage: false })
-                    _trayIcon?.ShowBalloonTip(3500, "AstroDay", "NASA's latest APOD post is not an image. Its description was saved.", ToolTipIcon.Info);
+                if (item is null)
+                    _trayIcon?.ShowBalloonTip(3500, "AstroDay", "No still image was found in the latest 6 APOD days. The current desktop was kept.", ToolTipIcon.Info);
+                else if (!_todayAvailable)
+                    _trayIcon?.ShowBalloonTip(3500, "AstroDay", $"No still image was available today; applied the image from {item.Date}.", ToolTipIcon.Info);
             }
             catch (Exception ex)
             {

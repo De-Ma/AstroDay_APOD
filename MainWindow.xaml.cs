@@ -55,7 +55,9 @@ public partial class MainWindow : Window
         var version = assembly.GetName().Version;
         var creationDate = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(attribute => attribute.Key == "CreationDate")?.Value ?? "Unknown";
-        AboutText.Text = $"Version {version?.Major}.{version?.Minor}.{version?.Build}  ·  Created {creationDate}\nNASA Astronomy Picture of the Day for Windows.";
+        var versionText = $"{version?.Major}.{version?.Minor}.{version?.Build}";
+        VersionText.Text = $"v{versionText}";
+        AboutText.Text = $"Version {versionText}  ·  Created {creationDate}\nNASA Astronomy Picture of the Day for Windows.";
         UpdateLastCheckedText();
         _loadingSettings = false;
         Closing += MainWindow_Closing;
@@ -90,6 +92,27 @@ public partial class MainWindow : Window
     public void SetBackgroundStatus(string message) => StatusText.Text = message;
 
     public void SetUpdateStatus(string message) => StatusText.Text = message;
+
+    private UpdateCheckResult? _latestUpdate;
+
+    public void SetUpdateResult(UpdateCheckResult? result)
+    {
+        _latestUpdate = result;
+        if (result is null)
+        {
+            UpdateText.Text = "No published release was found.";
+            ViewReleaseButton.Visibility = Visibility.Collapsed;
+            DownloadUpdateButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+        UpdateText.Text = result.IsUpdateAvailable
+            ? $"{result.ReleaseName} is available. Installed: {result.CurrentVersion}."
+            : $"AstroDay {result.CurrentVersion} is up to date.";
+        ViewReleaseButton.Visibility = Visibility.Visible;
+        DownloadUpdateButton.Visibility = result.IsUpdateAvailable && result.InstallerUrl is not null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
 
     public async Task RefreshAsync()
     {
@@ -176,18 +199,16 @@ public partial class MainWindow : Window
         SetImageLoading(true);
         try
         {
-            var item = await _apod.DownloadTodayAsync(CancellationToken.None);
+            var item = await _apod.DownloadLatestStillImageAsync(CancellationToken.None);
             if (item is not null)
                 SetDatePickerSelection(DateTime.ParseExact(item.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
             await RefreshAsync();
             if (item is null)
-                StatusText.Text = "NASA's latest post is not an image.";
-            else if (!item.HasImage)
-                StatusText.Text = $"No still image today · description saved · {item.Date}";
+                StatusText.Text = "No still image found in the latest 6 APOD days; keeping the current desktop.";
             else
             {
-                StatusText.Text = $"Updated · {item.Date}";
-                await ApplyAutomaticSourceAsync();
+                StatusText.Text = $"Updated from recent APOD · {item.Date}";
+                await ApplyAutomaticSourceAsync(item);
             }
         }
         catch (Exception exception)
@@ -571,6 +592,30 @@ public partial class MainWindow : Window
             await app.CheckForUpdatesAsync(userInitiated: true);
     }
 
+    private void OpenRepository_Click(object sender, RoutedEventArgs e) =>
+        OpenWebsite(UpdateCheckResult.RepositoryUrl, "Could not open the AstroDay repository");
+
+    private void ViewRelease_Click(object sender, RoutedEventArgs e)
+    {
+        if (_latestUpdate is not null)
+            OpenWebsite(_latestUpdate.ReleaseUrl, "Could not open the release page");
+    }
+
+    private void DownloadUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_latestUpdate?.InstallerUrl is not null)
+            OpenWebsite(_latestUpdate.InstallerUrl, "Could not download the AstroDay installer");
+    }
+
+    private void OpenWebsite(string url, string title)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private async void FavoritesModeToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (_loadingSettings) return;
@@ -673,12 +718,12 @@ public partial class MainWindow : Window
         StatusText.Text = "NASA API key saved";
     }
 
-    private async Task ApplyAutomaticSourceAsync()
+    private async Task ApplyAutomaticSourceAsync(ApodItem? preferredItem = null)
     {
         var items = await _library.GetItemsAsync();
         var item = _settings.FavoritesOnly
             ? FavoriteSelector.ChooseRandom(items, _settings.LastFavoritePath)
-            : items.FirstOrDefault(candidate => candidate.HasImage);
+            : preferredItem is { HasImage: true } ? preferredItem : items.FirstOrDefault(candidate => candidate.HasImage);
         if (item is null)
         {
             if (_settings.FavoritesOnly) StatusText.Text = "Add a favorite before using favorites as the automatic source";

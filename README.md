@@ -17,6 +17,7 @@ Images shown are from NASA's Astronomy Picture of the Day (credit: NASA and the 
 - Days without a still image (videos) are kept as text-only entries with title and description; **Go to APOD** opens the day on NASA's site.
 - Library cards: double-click opens the image, and the three-dot menu can set it as the desktop wallpaper, open it in Explorer, go to APOD, reload it, or remove it.
 - Desktop wallpaper placement can either fill the screen (cropping when necessary) or fit the whole image while preserving its aspect ratio.
+- If the latest APOD is not a still image, automatic checks search at most five previous days before leaving the current desktop unchanged.
 - Checks for a new APOD at startup and every 6 hours (every 30 minutes until today's image is available).
 - Favorites collection, visible favorites filter, and a shared **Favorites only** switch next to the apply buttons.
 - When Favorites only is active, random favorites are used for timed wallpaper rotation and manual apply actions. The interval is configurable in minutes (60 by default); lock-screen rotation is optional.
@@ -24,6 +25,7 @@ Images shown are from NASA's Astronomy Picture of the Day (credit: NASA and the 
 - Dark UI with six selectable accents (Mint, Sky, Violet, Amber, Coral, Lime), toggle-switch settings, themed scrollbars, and a planet-orbit loader.
 - NASA API key protected with Windows DPAPI for the current user; existing plaintext keys are migrated when loaded.
 - Checks GitHub Releases for updates at most once per day, with a manual **Check for updates** action in Settings and the tray menu.
+- Update details include direct repository and release links plus a one-click installer download when a newer installer is available.
 
 Dates use `yyyy-MM-dd`; local timestamps use `yyyy-MM-dd, HH:mm`.
 
@@ -61,7 +63,7 @@ Create a self-contained Windows x64 build with managed assemblies bundled into t
 dotnet publish AstroDay.csproj --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true
 ```
 
-Output is under `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish`. WPF may emit native support DLLs (and a PDB) beside `AstroDay.exe`; distribute the complete publish folder. Test the published executable on the Windows version you intend to support. Do not move it after enabling sign-in startup; if you do, turn startup off and on again from Settings.
+Output is under `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish`. WPF may emit native support DLLs (and a PDB) beside `AstroDay.exe`; distribute the complete publish folder. The release workflow also builds an Inno Setup installer with a selectable install directory and optional Windows sign-in and tray-start tasks. Test the published executable and installer on the Windows version you intend to support. Do not move a manually published executable after enabling sign-in startup; if you do, turn startup off and on again from Settings.
 
 ## Data and security
 
@@ -83,7 +85,7 @@ The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your 
 
 ## About
 
-- Product version: `1.1.0`
+- Product version: `1.2.0`
 - Application creation date: `2026-09-30`
 - License: Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The license does not grant rights to the AstroDay name.
 
@@ -103,4 +105,4 @@ The test suite covers favorite selection, DPAPI round-tripping, migration of leg
 - Verify desktop and lock-screen behavior on supported Windows versions and a managed-device scenario.
 - Review `.gitignore` and make sure no API key, personal images, settings, logs, or build output will be committed.
 - Build and test the published artifact, not only the development build.
-- Push a `v`-prefixed tag (for example `v1.1.0`) matching the `<Version>` in `AstroDay.csproj`. The Release workflow validates, publishes, zips, and creates the GitHub release with generated release notes.
+- Update `docs/RELEASE-v1.2.0.md` for the version being released, then push a matching `v`-prefixed tag (for example `v1.2.0`). The Release workflow validates, publishes, builds the installer and zip, and creates the GitHub release.

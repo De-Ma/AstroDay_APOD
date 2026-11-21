@@ -21,7 +21,19 @@ public sealed class UpdateServiceTests
     [Fact]
     public async Task CheckAsync_ReportsNewerGithubRelease()
     {
-        var handler = new StaticResponseHandler("""{"tag_name":"v1.2.0","html_url":"https://github.com/De-Ma/AstroDay_APOD/releases/tag/v1.2.0","name":"AstroDay 1.2.0"}""");
+        var handler = new StaticResponseHandler("""
+            {
+              "tag_name":"v1.2.0",
+              "html_url":"https://github.com/De-Ma/AstroDay_APOD/releases/tag/v1.2.0",
+              "name":"AstroDay 1.2.0",
+              "assets":[
+                {
+                  "name":"AstroDay-Setup-v1.2.0.exe",
+                  "browser_download_url":"https://github.com/De-Ma/AstroDay_APOD/releases/download/v1.2.0/AstroDay-Setup-v1.2.0.exe"
+                }
+              ]
+            }
+            """);
         using var client = new HttpClient(handler);
         var service = new UpdateService(client);
 
@@ -31,6 +43,7 @@ public sealed class UpdateServiceTests
         Assert.True(result.IsUpdateAvailable);
         Assert.Equal(new Version(1, 2, 0), result.LatestVersion);
         Assert.Equal("AstroDay 1.2.0", result.ReleaseName);
+        Assert.EndsWith("AstroDay-Setup-v1.2.0.exe", result.InstallerUrl);
     }
 
     [Fact]
