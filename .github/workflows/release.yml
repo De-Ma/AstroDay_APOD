@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore AstroDay.sln
+      - name: Verify formatting
+        run: dotnet format AstroDay.sln --verify-no-changes --no-restore
+      - name: Test
+        run: dotnet test AstroDay.sln --configuration Release --no-restore
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content AstroDay.csproj)).Project.PropertyGroup.Version
+          if ("v$version" -ne $env:GITHUB_REF_NAME) {
+            throw "Tag $env:GITHUB_REF_NAME does not match project version $version."
+          }
+      - name: Publish
+        shell: pwsh
+        run: |
+          dotnet publish AstroDay.csproj --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true
+          $publish = "bin\Release\net10.0-windows10.0.19041.0\win-x64\publish"
+          Compress-Archive -Path "$publish\*" -DestinationPath "AstroDay-win-x64.zip"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" "AstroDay-win-x64.zip" `
+            --verify-tag `
+            --generate-notes `
+            --title "AstroDay $env:GITHUB_REF_NAME"

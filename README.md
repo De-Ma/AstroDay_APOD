@@ -15,13 +15,15 @@ Images shown are from NASA's Astronomy Picture of the Day (credit: NASA and the 
 - Today preview (double-click opens the image), date picker, and a library of downloaded images. Days are resolved in US Eastern time, as NASA publishes them.
 - Configurable image sources, tried in your chosen order: NASA API (api key), NASA article search (works for past days without a key), and the NASA APOD webpage (today only).
 - Days without a still image (videos) are kept as text-only entries with title and description; **Go to APOD** opens the day on NASA's site.
-- Library cards: double-click opens the image, a three-dot menu offers Go to APOD, Open file location, Reload image and Remove from library.
+- Library cards: double-click opens the image, and the three-dot menu can set it as the desktop wallpaper, open it in Explorer, go to APOD, reload it, or remove it.
+- Desktop wallpaper placement can either fill the screen (cropping when necessary) or fit the whole image while preserving its aspect ratio.
 - Checks for a new APOD at startup and every 6 hours (every 30 minutes until today's image is available).
 - Favorites collection, visible favorites filter, and a shared **Favorites only** switch next to the apply buttons.
 - When Favorites only is active, random favorites are used for timed wallpaper rotation and manual apply actions. The interval is configurable in minutes (60 by default); lock-screen rotation is optional.
 - Custom image-library location, **Open folder** shortcuts, sign-in startup option, and close-to-tray preference.
 - Dark UI with six selectable accents (Mint, Sky, Violet, Amber, Coral, Lime), toggle-switch settings, themed scrollbars, and a planet-orbit loader.
 - NASA API key protected with Windows DPAPI for the current user; existing plaintext keys are migrated when loaded.
+- Checks GitHub Releases for updates at most once per day, with a manual **Check for updates** action in Settings and the tray menu.
 
 Dates use `yyyy-MM-dd`; local timestamps use `yyyy-MM-dd, HH:mm`.
 
@@ -81,7 +83,7 @@ The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your 
 
 ## About
 
-- Product version: `1.0.0`
+- Product version: `1.1.0`
 - Application creation date: `2026-09-30`
 - License: Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The license does not grant rights to the AstroDay name.
 
@@ -101,3 +103,4 @@ The test suite covers favorite selection, DPAPI round-tripping, migration of leg
 - Verify desktop and lock-screen behavior on supported Windows versions and a managed-device scenario.
 - Review `.gitignore` and make sure no API key, personal images, settings, logs, or build output will be committed.
 - Build and test the published artifact, not only the development build.
+- Push a `v`-prefixed tag (for example `v1.1.0`) matching the `<Version>` in `AstroDay.csproj`. The Release workflow validates, publishes, zips, and creates the GitHub release with generated release notes.

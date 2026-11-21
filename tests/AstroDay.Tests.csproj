@@ -26,5 +26,6 @@
     <Compile Include="..\Services\AtomicJsonFile.cs" Link="Services\AtomicJsonFile.cs" />
     <Compile Include="..\Services\FavoriteSelector.cs" Link="Services\FavoriteSelector.cs" />
     <Compile Include="..\Services\SettingsService.cs" Link="Services\SettingsService.cs" />
+    <Compile Include="..\Services\UpdateService.cs" Link="Services\UpdateService.cs" />
   </ItemGroup>
 </Project>

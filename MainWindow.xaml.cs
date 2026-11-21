@@ -43,6 +43,8 @@ public partial class MainWindow : Window
         LibraryPathText.Text = settings.LibraryDirectory;
         ApiKeyText.Text = settings.ApiKey;
         WallpaperCheck.IsChecked = settings.ApplyWallpaper;
+        _settings.WallpaperPlacement = WallpaperService.NormalizePlacement(settings.WallpaperPlacement);
+        WallpaperPlacementCombo.SelectedIndex = _settings.WallpaperPlacement == "Fit" ? 1 : 0;
         LockScreenCheck.IsChecked = settings.ApplyLockScreen;
         FavoritesModeToggle.IsChecked = settings.FavoritesOnly;
         CycleFavoritesLockScreenCheck.IsChecked = settings.CycleFavoritesOnLockScreen;
@@ -86,6 +88,8 @@ public partial class MainWindow : Window
         LoadingOverlay.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
 
     public void SetBackgroundStatus(string message) => StatusText.Text = message;
+
+    public void SetUpdateStatus(string message) => StatusText.Text = message;
 
     public async Task RefreshAsync()
     {
@@ -358,6 +362,24 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void GallerySetDesktop_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetMenuOwner(sender)?.Tag is not string dateText) return;
+        var item = (await _library.GetItemsAsync()).FirstOrDefault(entry => entry.Date == dateText);
+        if (item is not { HasImage: true }) return;
+        try
+        {
+            WallpaperService.SetDesktopWallpaper(item.FilePath, _settings.WallpaperPlacement);
+            _settings.CurrentWallpaperPath = item.FilePath;
+            await SaveSettingsAsync();
+            StatusText.Text = $"Desktop set · {item.Date}";
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "Could not set desktop wallpaper", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private async void GalleryOpenApod_Click(object sender, RoutedEventArgs e)
     {
         if (GetMenuOwner(sender)?.Tag is string dateText)
@@ -436,7 +458,7 @@ public partial class MainWindow : Window
         if (item is null) return;
         try
         {
-            WallpaperService.SetDesktopWallpaper(item.FilePath);
+            WallpaperService.SetDesktopWallpaper(item.FilePath, _settings.WallpaperPlacement);
             _settings.CurrentWallpaperPath = item.FilePath;
             await SaveSettingsAsync();
             StatusText.Text = $"Desktop set · {item.Date}";
@@ -522,6 +544,31 @@ public partial class MainWindow : Window
             StatusText.Text = "Could not save settings";
             MessageBox.Show(this, exception.Message, "Settings could not be applied", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private async void WallpaperPlacement_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingSettings || WallpaperPlacementCombo.SelectedItem is not ComboBoxItem { Tag: string placement }) return;
+        _settings.WallpaperPlacement = WallpaperService.NormalizePlacement(placement);
+        await SaveSettingsAsync();
+        StatusText.Text = _settings.WallpaperPlacement == "Fit"
+            ? "Wallpaper placement: fit the whole image"
+            : "Wallpaper placement: fill the screen";
+        if (_settings.CurrentWallpaperPath is not null && File.Exists(_settings.CurrentWallpaperPath))
+        {
+            try { WallpaperService.SetDesktopWallpaper(_settings.CurrentWallpaperPath, _settings.WallpaperPlacement); }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Could not update wallpaper placement", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        StatusText.Text = "Checking for updates…";
+        if (Application.Current is App app)
+            await app.CheckForUpdatesAsync(userInitiated: true);
     }
 
     private async void FavoritesModeToggle_Changed(object sender, RoutedEventArgs e)
@@ -643,7 +690,7 @@ public partial class MainWindow : Window
         {
             try
             {
-                WallpaperService.SetDesktopWallpaper(item.FilePath);
+                WallpaperService.SetDesktopWallpaper(item.FilePath, _settings.WallpaperPlacement);
                 _settings.CurrentWallpaperPath = item.FilePath;
             }
             catch (Exception exception) { StatusText.Text = $"Desktop update failed: {exception.Message}"; }

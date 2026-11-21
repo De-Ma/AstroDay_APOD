@@ -86,6 +86,7 @@ public static class SettingsService
         public string? ProtectedApiKey { get; set; }
         public string? LibraryDirectory { get; set; }
         public bool ApplyWallpaper { get; set; } = true;
+        public string? WallpaperPlacement { get; set; }
         public bool ApplyLockScreen { get; set; }
         public bool FavoritesOnly { get; set; }
         public int FavoriteCycleIntervalMinutes { get; set; } = 60;
@@ -97,6 +98,7 @@ public static class SettingsService
         public string ThemeName { get; set; } = "Mint";
         public string? SelectedApodDate { get; set; }
         public DateTime? LastCheckedUtc { get; set; }
+        public DateTime? LastUpdateCheckUtc { get; set; }
         public string? CurrentWallpaperPath { get; set; }
 
         public AppSettings ToSettings() => new()
@@ -104,6 +106,7 @@ public static class SettingsService
             LibraryDirectory = LibraryDirectory ?? new AppSettings().LibraryDirectory,
             ProtectedApiKey = ProtectedApiKey,
             ApplyWallpaper = ApplyWallpaper,
+            WallpaperPlacement = WallpaperPlacement == "Fit" ? "Fit" : "Fill",
             ApplyLockScreen = ApplyLockScreen,
             FavoritesOnly = FavoritesOnly,
             FavoriteCycleIntervalMinutes = FavoriteCycleIntervalMinutes,
@@ -115,6 +118,7 @@ public static class SettingsService
             ThemeName = ThemeName,
             SelectedApodDate = SelectedApodDate,
             LastCheckedUtc = LastCheckedUtc,
+            LastUpdateCheckUtc = LastUpdateCheckUtc,
             CurrentWallpaperPath = CurrentWallpaperPath
         };
 
@@ -123,6 +127,7 @@ public static class SettingsService
             ProtectedApiKey = settings.ProtectedApiKey,
             LibraryDirectory = settings.LibraryDirectory,
             ApplyWallpaper = settings.ApplyWallpaper,
+            WallpaperPlacement = settings.WallpaperPlacement == "Fit" ? "Fit" : "Fill",
             ApplyLockScreen = settings.ApplyLockScreen,
             FavoritesOnly = settings.FavoritesOnly,
             FavoriteCycleIntervalMinutes = settings.FavoriteCycleIntervalMinutes,
@@ -134,6 +139,7 @@ public static class SettingsService
             ThemeName = settings.ThemeName,
             SelectedApodDate = settings.SelectedApodDate,
             LastCheckedUtc = settings.LastCheckedUtc,
+            LastUpdateCheckUtc = settings.LastUpdateCheckUtc,
             CurrentWallpaperPath = settings.CurrentWallpaperPath
         };
     }

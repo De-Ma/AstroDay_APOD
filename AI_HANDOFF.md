@@ -1,12 +1,19 @@
 # AstroDay Session Handoff
 
-Updated: 2026-10-04
+Updated: 2026-11-21
 
 ## Project
 
 - Windows-only .NET 10 WPF app for NASA APOD; target framework `net10.0-windows10.0.19041.0`. Cross-platform is out of scope.
 - Use `%USERPROFILE%\.dotnet10\dotnet.exe` (SDK 10.0.401). `dotnet` on PATH resolves to SDK 8, while `global.json` requires 10.0.100.
-- Git is on `main` with local commits only (no remote yet); author `DMA` (repo-local config). Licensed under Apache 2.0 (`LICENSE`, `NOTICE`, copyright DMA).
+- Git is on `main` with `De-Ma/AstroDay_APOD` configured as `origin`; author `DMA` (repo-local config). Licensed under Apache 2.0 (`LICENSE`, `NOTICE`, copyright DMA).
+
+## Completed 2026-11-21
+
+- **Library wallpaper action:** the three-dot card menu can set a still image as the desktop background/wallpaper.
+- **Wallpaper placement:** desktop images use a persisted Fill or Fit placement setting; Fit preserves the whole image and aspect ratio, while Fill crops as needed.
+- **Updates:** AstroDay checks the latest GitHub release at most once per day, offers manual checks in Settings and the tray, and opens the release page when an update is accepted.
+- **Releases:** version `1.1.0` and `.github/workflows/release.yml` publish a self-contained Windows x64 zip and create a generated-notes GitHub release from matching `v*` tags.
 
 ## Completed 2026-10-04
 
@@ -25,7 +32,7 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 
 ## Current status
 
-- `dotnet format --verify-no-changes`: pass. Release build: 0 warnings, 0 errors. Tests: 45 passed.
+- `dotnet format --verify-no-changes`: pass. Release tests: 54 passed. Self-contained win-x64 publish: pass.
 - `ApodParsing.cs`, `LibraryService.cs` and `ApodSources.cs` are linked into `tests/AstroDay.Tests.csproj`; new source files used by tests must be added there too.
 - The app was last launched from `bin\Debug` without startup errors.
 
@@ -43,5 +50,4 @@ Root cause of the "pixelated NASA image" since 2026-09-29: NASA moved APOD to `s
 ## Next recommended task
 
 1. Add an `HttpMessageHandler` seam in `ApodService` and tests for source ordering, 429 fallback, and video days.
-2. Create the GitHub repository (empty, no README/license), add it as `origin` and push `main`.
-3. Prepare a signed or policy-accepted release artifact.
+2. Consider code signing or another Code Integrity acceptance path for the distributed release artifact.

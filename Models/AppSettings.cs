@@ -9,6 +9,7 @@ public sealed class AppSettings
     public string? ProtectedApiKey { get; set; }
     public bool ApiKeyUnprotectFailed { get; set; }
     public bool ApplyWallpaper { get; set; } = true;
+    public string WallpaperPlacement { get; set; } = "Fill";
     public bool ApplyLockScreen { get; set; }
     public bool FavoritesOnly { get; set; }
     public int FavoriteCycleIntervalMinutes { get; set; } = 60;
@@ -20,5 +21,6 @@ public sealed class AppSettings
     public string ThemeName { get; set; } = "Mint";
     public string? SelectedApodDate { get; set; }
     public DateTime? LastCheckedUtc { get; set; }
+    public DateTime? LastUpdateCheckUtc { get; set; }
     public string? CurrentWallpaperPath { get; set; }
 }

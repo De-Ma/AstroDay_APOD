@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -17,6 +18,7 @@ public partial class App : Application
     private System.Threading.Timer? _favoriteTimer;
     private readonly SemaphoreSlim _rotationGate = new(1, 1);
     private readonly SemaphoreSlim _dailyCheckGate = new(1, 1);
+    private readonly UpdateService _updates = new();
     private MainWindow? _mainWindow;
     private LibraryService? _library;
     private ApodService? _apod;
@@ -78,6 +80,7 @@ public partial class App : Application
                 ShowMainWindow();
 
             _ = CheckForTodayAsync();
+            _ = CheckForUpdatesAsync(userInitiated: false);
         }
         catch (Exception exception)
         {
@@ -92,6 +95,7 @@ public partial class App : Application
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open AstroDay", null, (_, _) => Dispatcher.Invoke(ShowMainWindow));
         menu.Items.Add("Check for today's image", null, async (_, _) => await CheckForTodayAsync());
+        menu.Items.Add("Check for updates", null, async (_, _) => await CheckForUpdatesAsync(userInitiated: true));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitApplication());
         _trayIcon = new NotifyIcon
@@ -104,6 +108,65 @@ public partial class App : Application
         _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowMainWindow);
         if (SettingsService.LastLoadWarning is { } warning)
             _trayIcon.ShowBalloonTip(6000, "AstroDay settings recovery", warning, ToolTipIcon.Warning);
+    }
+
+    public async Task<UpdateCheckResult?> CheckForUpdatesAsync(bool userInitiated)
+    {
+        if (!userInitiated && _settings.LastUpdateCheckUtc is { } lastCheck &&
+            DateTime.UtcNow - lastCheck < TimeSpan.FromDays(1))
+            return null;
+
+        try
+        {
+            var result = await _updates.CheckAsync(UpdateService.GetCurrentVersion());
+            _settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AstroDay");
+            await SettingsService.SaveAsync(Path.Combine(appData, "settings.json"), _settings);
+
+            if (result is not { IsUpdateAvailable: true })
+            {
+                if (userInitiated)
+                {
+                    await Dispatcher.InvokeAsync(() => _mainWindow?.SetUpdateStatus("AstroDay is up to date"));
+                    if (_mainWindow is null)
+                        _trayIcon?.ShowBalloonTip(5000, "AstroDay is up to date", $"Version {result?.CurrentVersion ?? UpdateService.GetCurrentVersion()} is current.", ToolTipIcon.Info);
+                }
+                return result;
+            }
+
+            var message = $"AstroDay {result.LatestVersion} is available. You are using {result.CurrentVersion}.";
+            if (userInitiated || _mainWindow is not null)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    _mainWindow?.SetUpdateStatus($"Update available · {result.LatestVersion}");
+                    if (System.Windows.MessageBox.Show(
+                        message + "\n\nOpen the release page?",
+                        "AstroDay update available",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information) == MessageBoxResult.Yes)
+                    {
+                        Process.Start(new ProcessStartInfo(result.ReleaseUrl) { UseShellExecute = true });
+                    }
+                });
+            }
+            else
+            {
+                _trayIcon?.ShowBalloonTip(8000, "AstroDay update available", message, ToolTipIcon.Info);
+            }
+            return result;
+        }
+        catch (Exception exception)
+        {
+            ErrorReporter.Log(exception, "Update check");
+            if (userInitiated)
+            {
+                await Dispatcher.InvokeAsync(() => _mainWindow?.SetUpdateStatus($"Update check failed: {exception.Message}"));
+                if (_mainWindow is null)
+                    _trayIcon?.ShowBalloonTip(5000, "AstroDay update check failed", exception.Message, ToolTipIcon.Warning);
+            }
+            return null;
+        }
     }
 
     private void ScheduleNextCheck()
@@ -174,7 +237,7 @@ public partial class App : Application
         {
             try
             {
-                WallpaperService.SetDesktopWallpaper(item.FilePath);
+                WallpaperService.SetDesktopWallpaper(item.FilePath, _settings.WallpaperPlacement);
                 _settings.CurrentWallpaperPath = item.FilePath;
             }
             catch (Exception exception)
@@ -220,7 +283,7 @@ public partial class App : Application
 
             if (_settings.ApplyWallpaper)
             {
-                WallpaperService.SetDesktopWallpaper(item.FilePath);
+                WallpaperService.SetDesktopWallpaper(item.FilePath, _settings.WallpaperPlacement);
                 _settings.CurrentWallpaperPath = item.FilePath;
             }
             if (_settings.ApplyLockScreen && _settings.CycleFavoritesOnLockScreen)

@@ -359,6 +359,7 @@
                         <Button Content="⋯" ToolTip="More" Tag="{Binding Date}" Click="GalleryMore_Click" Height="26" MinHeight="26" Width="28" MinWidth="28" Padding="0,0,0,4" FontWeight="Bold">
                           <Button.ContextMenu>
                             <ContextMenu Style="{StaticResource ThemedContextMenu}">
+                              <MenuItem Style="{StaticResource ThemedMenuItem}" Header="🖥  Set as desktop background / wallpaper" IsEnabled="{Binding HasImage}" Click="GallerySetDesktop_Click" />
                               <MenuItem Style="{StaticResource ThemedMenuItem}" Header="📂  Open file location" Click="GalleryOpenLocation_Click" />
                               <MenuItem Style="{StaticResource ThemedMenuItem}" Header="🌐  Go to APOD" Click="GalleryOpenApod_Click" />
                               <MenuItem Style="{StaticResource ThemedMenuItem}" Header="⟳  Reload image" Click="GalleryReload_Click" />
@@ -411,6 +412,16 @@
             <TextBlock Text="Set the desktop wallpaper automatically" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
           </DockPanel>
           <DockPanel Style="{StaticResource SettingsRow}">
+            <ComboBox x:Name="WallpaperPlacementCombo" DockPanel.Dock="Right" Width="150" SelectionChanged="WallpaperPlacement_Changed">
+              <ComboBoxItem Content="Fill screen" Tag="Fill" />
+              <ComboBoxItem Content="Fit whole image" Tag="Fit" />
+            </ComboBox>
+            <StackPanel Margin="0,0,12,0">
+              <TextBlock Text="Desktop image placement" TextWrapping="Wrap" />
+              <TextBlock Style="{StaticResource SettingsHint}" Text="Fill may crop; Fit keeps the full aspect ratio." Margin="0,3,0,0" />
+            </StackPanel>
+          </DockPanel>
+          <DockPanel Style="{StaticResource SettingsRow}">
             <ToggleButton x:Name="LockScreenCheck" DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource FavoritesSwitchStyle}" Checked="Settings_Changed" Unchecked="Settings_Changed" />
             <StackPanel Margin="0,0,12,0">
               <TextBlock Text="Set the Windows lock screen automatically" TextWrapping="Wrap" />
@@ -455,6 +466,7 @@
           <Separator Margin="0,22,0,18" Background="{DynamicResource RaisedBrush}" />
           <TextBlock Style="{StaticResource SettingsHeader}" Text="ABOUT" Margin="0,0,0,8" />
           <TextBlock x:Name="AboutText" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+          <Button Content="Check for updates" Click="CheckUpdates_Click" HorizontalAlignment="Left" Margin="0,10,0,0" />
         </StackPanel>
       </ScrollViewer>
     </Border>
