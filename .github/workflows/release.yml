@@ -51,6 +51,11 @@ jobs:
           ) | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { throw "Inno Setup compiler was not found after installation." }
           & $iscc "/DAppVersion=$version" "/DPublishDir=$publish" "installer\AstroDay.iss"
+      - name: Smoke test installer
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content AstroDay.csproj)).Project.PropertyGroup.Version
+          installer\Test-Installer.ps1 -InstallerPath "AstroDay-Setup-v$version.exe"
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

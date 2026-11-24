@@ -72,7 +72,7 @@ Output is under `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish`. WPF m
 ## Data and security
 
 - Settings are stored at `%LOCALAPPDATA%\AstroDay\settings.json`.
-- NASA images and `library.json` are stored in the selected library folder, defaulting to `Pictures\AstroDay`.
+- NASA images and `library.json` are stored in the selected library folder, defaulting to `%LOCALAPPDATA%\AstroDay\Images`.
 - Installer upgrades and uninstalls never delete the selected image-library folder or its contents. If a folder is changed, source and conflicting destination files are preserved.
 - A user-provided NASA API key is protected using Windows DPAPI with current-user scope. This protects it at rest from other Windows users, but not from malware or processes running as the same user. Do not commit settings, API keys, library contents, or logs.
 - Downloads require HTTPS, image URLs must be on NASA-owned hosts, returned APOD dates are validated, and a single image is limited to 100 MB.
@@ -90,7 +90,7 @@ The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your 
 
 ## About
 
-- Product version: `1.4.2`
+- Product version: `1.4.3`
 - Application creation date: `2026-09-30`
 - License: Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The license does not grant rights to the AstroDay name.
 
@@ -103,7 +103,7 @@ The test suite covers favorite selection, DPAPI round-tripping, migration of leg
 ## Release checklist
 
 - Run `dotnet format AstroDay.sln --verify-no-changes --no-restore` and `dotnet test AstroDay.sln --configuration Release`.
-- Confirm the GitHub Actions workflow passes on Windows and publish from a clean tagged commit.
+- Confirm the GitHub Actions workflow passes on Windows, including its installer smoke test, and publish from a clean tagged commit.
 - Test a clean first launch, settings migration, an API outage (source fallback order), a video day, and browsing cached and uncached dates.
 - Verify maximizing does not cover the taskbar.
 - Verify favorites interval and target behavior, close-to-tray, startup registration, installer library selection, upgrade preservation, launch-after-install options, and Explorer shortcut.

@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "1.4.2"
+  #define AppVersion "1.4.3"
 #endif
 
 #ifndef PublishDir
@@ -126,7 +126,7 @@ begin
     PreviousVersion := '';
   DefaultLibrary := GetStoredLibraryDirectory;
   if DefaultLibrary = '' then
-    DefaultLibrary := ExpandConstant('{userprofile}\Pictures\AstroDay');
+    DefaultLibrary := ExpandConstant('{localappdata}\AstroDay\Images');
   LibraryPage.Values[0] := DefaultLibrary;
 end;
 
