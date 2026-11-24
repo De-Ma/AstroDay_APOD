@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using HtmlAgilityPack;
 
 namespace AstroDay.Services;
 
@@ -54,7 +55,16 @@ public static class ApodParsing
     // mission and asset libraries too. Only trusted assets.science.nasa.gov files qualify.
     public static IEnumerable<string> FindApodImageUrls(string html, DateOnly date)
     {
-        var normalizedMatches = Regex.Matches(html,
+        var heroHtml = html;
+        var document = new HtmlAgilityPack.HtmlDocument();
+        document.LoadHtml(html);
+        var heroNodes = document.DocumentNode.SelectNodes(
+            "//div[contains(@class, 'media-detail-hero__media')]//img" +
+            " | //div[contains(concat(' ', normalize-space(@class), ' '), ' hds-media ')]//figure//img");
+        if (heroNodes is { Count: > 0 })
+            heroHtml = string.Join(" ", heroNodes.Select(node => node.OuterHtml));
+
+        var normalizedMatches = Regex.Matches(heroHtml,
             @"https://assets\.science\.nasa\.gov/(?:dynamicimage/assets|content/dam)/science/[^""'\s<>?]+\.(?:jpe?g|png|gif|webp)",
             RegexOptions.IgnoreCase)
             .Select(match => match.Value)

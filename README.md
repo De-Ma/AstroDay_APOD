@@ -25,8 +25,8 @@ Images shown are from NASA's Astronomy Picture of the Day (credit: NASA and the 
 - Favorites collection, visible favorites filter, and a shared **Favorites only** switch next to the apply buttons.
 - When Favorites only is active, random favorites are used for timed wallpaper rotation and manual apply actions. The interval is configurable in minutes (60 by default); lock-screen rotation is optional.
 - Custom image-library location, **Open folder** shortcuts, sign-in startup option, and close-to-tray preference.
-- The installer supports an image-library location, safe in-place upgrades, icon-bearing shortcuts, optional sign-in startup, and launch-after-install in a window (default).
-- Dark UI with six selectable accents (Mint, Sky, Violet, Amber, Coral, Lime), toggle-switch settings, themed scrollbars, and a planet-orbit loader.
+- The themed installer supports separate install and image-library locations, safe in-place upgrades, icon-bearing shortcuts, optional sign-in startup, and launch after Finish.
+- Dark UI with six selectable accents (Mint, Sky, Violet, Amber, Coral, Lime), toggle-switch settings, themed scrollbars, and a three-orbit planet loader shared with the app and installer artwork.
 - NASA API key protected with Windows DPAPI for the current user; existing plaintext keys are migrated when loaded.
 - Checks GitHub Releases for updates at most once per day, with a manual **Check for updates** action in Settings and the tray menu.
 - Update details include direct repository and release links plus a one-click installer download when a newer installer is available.
@@ -74,6 +74,7 @@ Output is under `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish`. WPF m
 - Settings are stored at `%LOCALAPPDATA%\AstroDay\settings.json`.
 - NASA images and `library.json` are stored in the selected library folder, defaulting to `%LOCALAPPDATA%\AstroDay\Images`.
 - Installer upgrades and uninstalls never delete the selected image-library folder or its contents. If a folder is changed, source and conflicting destination files are preserved.
+- Shared/synced library catalogues store portable relative image paths. AstroDay keeps catalogue entries while an image is still arriving, retries temporary file locks, and retains the last valid in-memory catalogue if a sync tool briefly writes incomplete JSON.
 - A user-provided NASA API key is protected using Windows DPAPI with current-user scope. This protects it at rest from other Windows users, but not from malware or processes running as the same user. Do not commit settings, API keys, library contents, or logs.
 - Downloads require HTTPS, image URLs must be on NASA-owned hosts, returned APOD dates are validated, and a single image is limited to 100 MB.
 - JSON settings and library indexes use same-directory temporary-file replacement. A malformed settings file or image index is preserved as a timestamped `.corrupt-*` recovery copy when possible.
@@ -90,8 +91,8 @@ The shared NASA `DEMO_KEY` is rate-limited and often returns HTTP 429; add your 
 
 ## About
 
-- Product version: `1.4.3`
-- Application creation date: `2026-09-30`
+- Product version: `1.5.0`
+- Application creation date: `2026-09-30`; the About panel shows the release build date.
 - License: Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The license does not grant rights to the AstroDay name.
 
 The Settings drawer also shows the product version and creation date.

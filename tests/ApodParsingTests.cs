@@ -129,6 +129,23 @@ public sealed class ApodParsingTests
     }
 
     [Fact]
+    public void FindApodImageUrls_UsesHeroBeforeImagesInArticleLinks()
+    {
+        const string html = """
+            <div class="media-detail-hero__media">
+              <img src="https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/2026/november/NGC7771group_Marinoni_1179.jpg?w=1179" />
+            </div>
+            <p>Related: <img src="https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/2026/november/Lynds1251_old.jpg?w=800" /></p>
+            """;
+
+        var urls = ApodParsing.FindApodImageUrls(html, new DateOnly(2026, 11, 24)).ToArray();
+
+        Assert.Equal(2, urls.Length);
+        Assert.Contains("NGC7771group_Marinoni_1179.jpg", urls[0], StringComparison.Ordinal);
+        Assert.DoesNotContain(urls, url => url.Contains("Lynds1251_old", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ArticleLookupSearchUrl_UsesWordPressSearchApi()
     {
         Assert.Equal(

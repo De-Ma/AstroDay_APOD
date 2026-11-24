@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using AstroDay.Models;
 using AstroDay.Services;
 using Xunit;
@@ -136,6 +137,126 @@ public sealed class LibraryServiceTests
             Assert.Equal("source image", await File.ReadAllTextAsync(targetImage, token));
             Assert.Equal("target image", await File.ReadAllTextAsync(Directory.GetFiles(target, "*.jpg.preserved-*").Single(), token));
             Assert.Equal("target catalogue", await File.ReadAllTextAsync(Directory.GetFiles(target, "library.json.preserved-*").Single(), token));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public async Task Catalogue_StoresPortablePathsAndRemapsForeignAbsolutePaths()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var (library, directory) = Create();
+        try
+        {
+            var saved = await library.SaveDownloadAsync(Item("2026-10-01"), Bytes("image"), token);
+            var indexPath = Path.Combine(library.DirectoryPath, "library.json");
+            using (var document = JsonDocument.Parse(await File.ReadAllTextAsync(indexPath, token)))
+                Assert.Equal("2026-10-01.jpg", document.RootElement[0].GetProperty("FilePath").GetString());
+
+            var item = JsonSerializer.SerializeToElement(new ApodItem
+            {
+                Date = "2026-10-02",
+                Title = "From another computer",
+                FilePath = @"Z:\AnotherUser\OneDrive\AstroDay\2026-10-02.png"
+            });
+            await File.WriteAllTextAsync(indexPath, $"[{item.GetRawText()}]", token);
+            await File.WriteAllTextAsync(Path.Combine(library.DirectoryPath, "2026-10-02.png"), "synced image", token);
+
+            var loaded = Assert.Single(await library.GetItemsAsync());
+
+            Assert.Equal(Path.Combine(library.DirectoryPath, "2026-10-02.png"), loaded.FilePath);
+            Assert.True(loaded.IsImageAvailable);
+            Assert.True(File.Exists(saved.FilePath));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public async Task MissingSyncedImage_KeepsMetadataUntilImageArrives()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var (library, directory) = Create();
+        try
+        {
+            var indexPath = Path.Combine(library.DirectoryPath, "library.json");
+            Directory.CreateDirectory(library.DirectoryPath);
+            var json = JsonSerializer.Serialize(new[]
+            {
+                new ApodItem { Date = "2026-10-01", Title = "Waiting for sync", FilePath = "2026-10-01.jpg" }
+            });
+            await File.WriteAllTextAsync(indexPath, json, token);
+
+            var waiting = Assert.Single(await library.GetItemsAsync());
+
+            Assert.True(waiting.HasImage);
+            Assert.False(waiting.IsImageAvailable);
+            Assert.True(waiting.IsImageSyncing);
+
+            await File.WriteAllTextAsync(Path.Combine(library.DirectoryPath, "2026-10-01.jpg"), "image", token);
+            Assert.True(Assert.Single(await library.GetItemsAsync()).IsImageAvailable);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public async Task TemporaryInvalidCatalogue_KeepsLastKnownItems()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var (library, directory) = Create();
+        try
+        {
+            await library.SaveDownloadAsync(Item("2026-10-01"), Bytes("image"), token);
+            var firstLoad = Assert.Single(await library.GetItemsAsync());
+            Assert.Equal(new FileInfo(firstLoad.FilePath).Length, firstLoad.FileSizeBytes);
+            await File.WriteAllTextAsync(Path.Combine(library.DirectoryPath, "library.json"), "{\"Date\":", token);
+
+            var afterPartialSync = Assert.Single(await library.GetItemsAsync());
+
+            Assert.Same(firstLoad, afterPartialSync);
+            Assert.Contains("kept the last loaded items", library.LastLoadWarning, StringComparison.OrdinalIgnoreCase);
+            Assert.Single(Directory.GetFiles(library.DirectoryPath, "library.json"));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public async Task FavoriteChange_RaisesPropertyNotificationWithoutReplacingItem()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var (library, directory) = Create();
+        try
+        {
+            await library.SaveDownloadAsync(Item("2026-10-01"), Bytes("image"), token);
+            var item = Assert.Single(await library.GetItemsAsync());
+            string? changedProperty = null;
+            item.PropertyChanged += (_, args) => changedProperty = args.PropertyName;
+
+            var isFavorite = await library.ToggleFavoriteAsync(item.Date);
+
+            Assert.True(isFavorite);
+            Assert.True(item.IsFavorite);
+            Assert.Equal(nameof(ApodItem.IsFavorite), changedProperty);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public async Task CatalogueItem_WithStaleImageContents_WaitsForMatchingFile()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var (library, directory) = Create();
+        try
+        {
+            var saved = await library.SaveDownloadAsync(Item("2026-11-24"), Bytes("new-galaxy-image"), token);
+            var indexPath = Path.Combine(library.DirectoryPath, "library.json");
+            var catalogue = await File.ReadAllTextAsync(indexPath, token);
+            await File.WriteAllTextAsync(saved.FilePath, "old", token);
+
+            Assert.False(Assert.Single(await library.GetItemsAsync()).IsImageAvailable);
+
+            await File.WriteAllTextAsync(saved.FilePath, "new-galaxy-image", token);
+            Assert.True(Assert.Single(await library.GetItemsAsync()).IsImageAvailable);
+            Assert.NotEmpty(catalogue);
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

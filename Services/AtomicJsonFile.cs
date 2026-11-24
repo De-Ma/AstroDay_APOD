@@ -18,7 +18,19 @@ public static class AtomicJsonFile
                 await JsonSerializer.SerializeAsync(stream, value, options, cancellationToken);
                 await stream.FlushAsync(cancellationToken);
             }
-            File.Move(temporaryPath, path, true);
+            const int attempts = 4;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.Move(temporaryPath, path, true);
+                    break;
+                }
+                catch (IOException) when (attempt < attempts)
+                {
+                    await Task.Delay(attempt * 100, cancellationToken);
+                }
+            }
         }
         finally
         {

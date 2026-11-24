@@ -67,7 +67,7 @@ public partial class App : Application
             {
                 if (string.IsNullOrWhiteSpace(libraryArgument))
                     throw new ArgumentException("The installer did not provide a library folder.");
-                var configuredLibrary = new LibraryService(_settings.LibraryDirectory, Path.Combine(appData, "settings.json"), _settings);
+                using var configuredLibrary = new LibraryService(_settings.LibraryDirectory, Path.Combine(appData, "settings.json"), _settings);
                 await configuredLibrary.SetLibraryDirectoryAsync(libraryArgument);
                 await SettingsService.SaveAsync(Path.Combine(appData, "settings.json"), _settings);
                 SettingsService.RememberLibraryDirectory(_settings.LibraryDirectory);
@@ -251,8 +251,8 @@ public partial class App : Application
         if (_library is null) return;
         var items = await _library.GetItemsAsync();
         var item = _settings.FavoritesOnly
-            ? FavoriteSelector.ChooseRandom(items, _settings.LastFavoritePath)
-            : downloadedToday is { HasImage: true } ? downloadedToday : items.FirstOrDefault(candidate => candidate.HasImage);
+            ? FavoriteSelector.ChooseRandom(items.Where(candidate => candidate.IsImageAvailable).ToArray(), _settings.LastFavoritePath)
+            : downloadedToday is { IsImageAvailable: true } ? downloadedToday : items.FirstOrDefault(candidate => candidate.IsImageAvailable);
         if (item is null) return;
         if (_settings.FavoritesOnly) _settings.LastFavoritePath = item.FilePath;
 
@@ -301,7 +301,7 @@ public partial class App : Application
         try
         {
             var items = await _library.GetItemsAsync();
-            var item = FavoriteSelector.ChooseRandom(items, _settings.LastFavoritePath);
+            var item = FavoriteSelector.ChooseRandom(items.Where(candidate => candidate.IsImageAvailable).ToArray(), _settings.LastFavoritePath);
             if (item is null) return;
 
             if (_settings.ApplyWallpaper)
@@ -356,6 +356,7 @@ public partial class App : Application
         _dailyTimer?.Dispose();
         _favoriteTimer?.Dispose();
         _trayIcon?.Dispose();
+        _library?.Dispose();
         if (_ownsMutex) _instanceMutex?.ReleaseMutex();
         _instanceMutex?.Dispose();
         base.OnExit(e);

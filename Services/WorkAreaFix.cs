@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace AstroDay.Services;
 
@@ -10,9 +11,11 @@ public static class WorkAreaFix
     private const int WmGetMinMaxInfo = 0x0024;
     private const int MonitorDefaultToNearest = 2;
 
-    public static void Attach(Window window) =>
+    public static void Attach(Window window)
+    {
         window.SourceInitialized += (_, _) =>
             HwndSource.FromHwnd(new WindowInteropHelper(window).Handle)?.AddHook(Hook);
+    }
 
     private static IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
@@ -22,6 +25,13 @@ public static class WorkAreaFix
         if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info)) return IntPtr.Zero;
 
         var minMax = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+        var source = HwndSource.FromHwnd(hwnd);
+        var transform = source?.CompositionTarget?.TransformToDevice ?? Matrix.Identity;
+        minMax.MinTrackSize = new Point32
+        {
+            X = (int)((System.Windows.Application.Current.MainWindow?.MinWidth ?? 960) * transform.M11),
+            Y = (int)((System.Windows.Application.Current.MainWindow?.MinHeight ?? 650) * transform.M22)
+        };
         minMax.MaxPosition = new Point32 { X = info.Work.Left - info.Monitor.Left, Y = info.Work.Top - info.Monitor.Top };
         minMax.MaxSize = new Point32 { X = info.Work.Right - info.Work.Left, Y = info.Work.Bottom - info.Work.Top };
         Marshal.StructureToPtr(minMax, lParam, true);

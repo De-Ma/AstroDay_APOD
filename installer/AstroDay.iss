@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "1.4.3"
+  #define AppVersion "1.5.0"
 #endif
 
 #ifndef PublishDir
@@ -19,6 +19,7 @@ AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
 DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
+DisableProgramGroupPage=yes
 AllowNoIcons=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
@@ -30,18 +31,15 @@ OutputDir=..
 OutputBaseFilename={#AppName}-Setup-v{#AppVersion}
 UninstallDisplayIcon={app}\AstroDay.ico
 SetupIconFile=..\assets\AstroDay.ico
+WizardImageFile=..\assets\InstallerSidebar.bmp
+WizardSmallImageFile=..\assets\InstallerSmall.bmp
 WizardStyle=modern
-CloseApplications=yes
+CloseApplications=force
 CloseApplicationsFilter=AstroDay.exe
-AppMutex=AstroDay.SingleInstance
+DisableReadyPage=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-
-[Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
-Name: "startup"; Description: "Start AstroDay when I sign in to Windows"; GroupDescription: "Startup:"
-Name: "launchapp"; Description: "Start AstroDay after installation"; GroupDescription: "After installation:"
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -49,20 +47,32 @@ Source: "..\assets\AstroDay.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#AppName}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\AstroDay.ico"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\AstroDay.ico"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\AstroDay.ico"; Check: CreateDesktopShortcut
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"" --background"; Flags: uninsdeletevalue; Tasks: startup
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"" --background"; Flags: uninsdeletevalue; Check: StartAtSignIn
 Root: HKCU; Subkey: "Software\AstroDay"; ValueType: string; ValueName: "LibraryDirectory"; ValueData: "{code:LibraryDirectory}"; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Parameters: "--configure-only --library={code:LibraryDirectoryArgument}"; Flags: runhidden waituntilterminated
-Filename: "{app}\{#AppExeName}"; Description: "Starting AstroDay"; Flags: nowait postinstall skipifsilent; Tasks: launchapp
+Filename: "{app}\{#AppExeName}"; Description: "Start AstroDay when the installer closes"; Flags: postinstall nowait skipifsilent
 
 [Code]
 var
   LibraryPage: TInputDirWizardPage;
+  DesktopShortcutCheck: TNewCheckBox;
+  StartupCheck: TNewCheckBox;
   PreviousVersion: String;
+
+function CreateDesktopShortcut: Boolean;
+begin
+  Result := (DesktopShortcutCheck = nil) or DesktopShortcutCheck.Checked;
+end;
+
+function StartAtSignIn: Boolean;
+begin
+  Result := (StartupCheck = nil) or StartupCheck.Checked;
+end;
 
 function GetStoredLibraryDirectory: String;
 var
@@ -116,18 +126,95 @@ var
 begin
   LibraryPage := CreateInputDirPage(
     wpSelectDir,
-    'Choose your AstroDay library',
-    'Where should downloaded images and the library.json catalogue be stored?',
-    'AstroDay preserves this folder during upgrades and uninstalling. Existing images are copied, never deleted, when changing folders.',
+    'AstroDay preferences',
+    'Choose the image-library location and optional shortcuts.',
+    'Your shared-folder library is preserved during upgrades and uninstalling.',
     False,
     'AstroDay');
   LibraryPage.Add('Image library folder:');
+  DesktopShortcutCheck := TNewCheckBox.Create(LibraryPage);
+  DesktopShortcutCheck.Parent := LibraryPage.Surface;
+  DesktopShortcutCheck.Left := ScaleX(0);
+  DesktopShortcutCheck.Top := ScaleY(92);
+  DesktopShortcutCheck.Width := LibraryPage.SurfaceWidth;
+  DesktopShortcutCheck.Caption := 'Create a desktop shortcut';
+  DesktopShortcutCheck.Checked := False;
+  StartupCheck := TNewCheckBox.Create(LibraryPage);
+  StartupCheck.Parent := LibraryPage.Surface;
+  StartupCheck.Left := ScaleX(0);
+  StartupCheck.Top := ScaleY(116);
+  StartupCheck.Width := LibraryPage.SurfaceWidth;
+  StartupCheck.Caption := 'Start AstroDay when I sign in to Windows';
+  StartupCheck.Checked := True;
   if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#AppId}_is1', 'DisplayVersion', PreviousVersion) then
     PreviousVersion := '';
   DefaultLibrary := GetStoredLibraryDirectory;
   if DefaultLibrary = '' then
     DefaultLibrary := ExpandConstant('{localappdata}\AstroDay\Images');
   LibraryPage.Values[0] := DefaultLibrary;
+end;
+
+procedure StyleInstaller;
+var
+  Index: Integer;
+  Control: TControl;
+begin
+  WizardForm.Color := $00F5F7F7;
+  WizardForm.Font.Color := $00262219;
+  for Index := 0 to WizardForm.ComponentCount - 1 do
+  begin
+    if WizardForm.Components[Index] is TControl then
+    begin
+      Control := TControl(WizardForm.Components[Index]);
+      if Control is TPanel then
+      begin
+        TPanel(Control).Color := $00F5F7F7;
+        TPanel(Control).Font.Color := $00262219;
+      end
+      else if Control is TLabel then
+      begin
+        TLabel(Control).Color := $00F5F7F7;
+        TLabel(Control).Font.Color := $00262219;
+      end
+      else if Control is TNewStaticText then
+      begin
+        TNewStaticText(Control).Font.Color := $00262219;
+      end
+      else if Control is TCheckBox then
+      begin
+        TCheckBox(Control).Font.Color := $00262219;
+      end
+      else if Control is TEdit then
+      begin
+        TEdit(Control).Color := $00FFFFFF;
+        TEdit(Control).Font.Color := $00262219;
+      end;
+    end;
+  end;
+  WizardForm.TasksList.Font.Color := $00262219;
+  WizardForm.PageNameLabel.Font.Color := $00C7DB9A;
+  WizardForm.PageDescriptionLabel.Font.Color := $00F2F5F1;
+  WizardForm.NextButton.Font.Color := $00262219;
+  WizardForm.BackButton.Font.Color := $00262219;
+  WizardForm.CancelButton.Font.Color := $00262219;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  StyleInstaller;
+  if CurPageID = LibraryPage.ID then
+  begin
+    WizardForm.NextButton.Caption := '&Install';
+    WizardForm.PageNameLabel.Caption := 'AstroDay preferences';
+    WizardForm.PageDescriptionLabel.Caption := 'Choose your library folder and click Install.';
+  end
+  else
+    WizardForm.NextButton.Caption := '&Next >';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := PageID = wpSelectTasks;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -141,21 +228,4 @@ begin
     Log('AstroDay process close attempt completed with exit code ' + IntToStr(ExitCode) + '.')
   else
     Result := 'Setup could not stop AstroDay. Close the app and try again.';
-end;
-
-function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo,
-  MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
-var
-  InstallationType: String;
-begin
-  if PreviousVersion <> '' then
-    InstallationType := 'Update existing AstroDay ' + PreviousVersion + ' to {#AppVersion}.'
-  else
-    InstallationType := 'Install AstroDay {#AppVersion}.';
-  Result := InstallationType + NewLine + NewLine;
-  Result := Result + MemoDirInfo + NewLine + NewLine;
-  Result := Result + 'AstroDay library:' + NewLine;
-  Result := Result + Space + LibraryPage.Values[0] + NewLine;
-  Result := Result + Space + 'Existing library content will be preserved and never removed by setup.' + NewLine + NewLine;
-  Result := Result + MemoGroupInfo + NewLine + MemoTasksInfo;
 end;

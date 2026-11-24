@@ -49,7 +49,9 @@ public sealed class ApodService
         if (!forceRefresh)
         {
             var cached = await _library.GetByDateAsync(dateText);
-            if (cached is not null) return cached;
+            if (cached is not null && (!cached.HasImage || cached.FileSizeBytes is not null))
+                return cached;
+            // Image entries created before integrity metadata was added are refreshed once.
         }
 
         var errors = new List<string>();
@@ -134,7 +136,8 @@ public sealed class ApodService
             var document = new HtmlAgilityPack.HtmlDocument();
             document.LoadHtml(html);
             var pageText = Regex.Replace(HtmlEntity.DeEntitize(document.DocumentNode.InnerText), @"\s+", " ").Trim();
-            var actualDate = ExtractPageDate(pageText) ?? requestedDate;
+            var actualDate = ExtractPageDate(pageText) ??
+                throw new InvalidDataException("NASA's APOD webpage did not include a recognizable publication date.");
 
             // NASA may still show yesterday's picture; don't re-download or overwrite a day we already have.
             if (!forceRefresh && actualDate != requestedDate &&

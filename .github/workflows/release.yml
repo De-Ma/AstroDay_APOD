@@ -35,7 +35,8 @@ jobs:
       - name: Publish
         shell: pwsh
         run: |
-          dotnet publish AstroDay.csproj --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true
+          $releaseDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+          dotnet publish AstroDay.csproj --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true "/p:AstroDayReleaseDate=$releaseDate"
           $publish = "bin\Release\net10.0-windows10.0.19041.0\win-x64\publish"
           Compress-Archive -Path "$publish\*" -DestinationPath "AstroDay-win-x64.zip"
       - name: Build installer

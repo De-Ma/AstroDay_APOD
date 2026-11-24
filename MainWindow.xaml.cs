@@ -1,13 +1,18 @@
+using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using AstroDay.Models;
 using AstroDay.Services;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
+using Image = System.Windows.Controls.Image;
 using MessageBox = System.Windows.MessageBox;
 
 namespace AstroDay;
@@ -22,6 +27,13 @@ public partial class MainWindow : Window
     private bool _loadingSettings = true;
     private bool _showFavorites;
     private bool _changingDatePicker;
+    private readonly ObservableCollection<ApodItem> _galleryItems = [];
+    private readonly DispatcherTimer _librarySyncTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
+    private readonly DispatcherTimer _thumbnailScanTimer = new() { Interval = TimeSpan.FromMilliseconds(90) };
+    private readonly ConcurrentDictionary<(string Path, long Ticks), BitmapImage> _thumbnailCache = new();
+    private readonly ConcurrentDictionary<(string Path, long Ticks), byte> _pendingThumbnails = new();
+    private readonly ConcurrentDictionary<Image, (string Path, long Ticks)> _displayedThumbnails = new();
+    private readonly SemaphoreSlim _thumbnailDecodeGate = new(2, 2);
 
     public MainWindow(LibraryService library, ApodService apod, AppSettings settings)
     {
@@ -30,6 +42,10 @@ public partial class MainWindow : Window
         _library = library;
         _apod = apod;
         _settings = settings;
+        GalleryList.ItemsSource = _galleryItems;
+        _library.FilesChangedExternally += Library_FilesChangedExternally;
+        _librarySyncTimer.Tick += LibrarySyncTimer_Tick;
+        _thumbnailScanTimer.Tick += ThumbnailScanTimer_Tick;
         _settings.ThemeName = ThemeService.NormalizeName(settings.ThemeName);
         ThemeService.Apply(_settings.ThemeName);
         Icon = AppIconService.CreateImageSource();
@@ -53,11 +69,11 @@ public partial class MainWindow : Window
         CloseToTrayCheck.IsChecked = settings.CloseToTray;
         var assembly = Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version;
-        var creationDate = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .FirstOrDefault(attribute => attribute.Key == "CreationDate")?.Value ?? "Unknown";
+        var releaseDate = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == "ReleaseDate")?.Value ?? "Unknown";
         var versionText = $"{version?.Major}.{version?.Minor}.{version?.Build}";
         VersionText.Text = $"v{versionText}";
-        AboutText.Text = $"Version {versionText}  ·  Created {creationDate}\nNASA Astronomy Picture of the Day for Windows.";
+        AboutText.Text = $"Version {versionText}  ·  Released {releaseDate}\nNASA Astronomy Picture of the Day for Windows.";
         UpdateLastCheckedText();
         _loadingSettings = false;
         Closing += MainWindow_Closing;
@@ -122,10 +138,9 @@ public partial class MainWindow : Window
         if (version != _refreshVersion) return;
         var selectedGalleryDate = (GalleryList.SelectedItem as ApodItem)?.Date;
         var visibleItems = _showFavorites ? items.Where(item => item.IsFavorite).ToArray() : items.ToArray();
-        GalleryList.ItemsSource = visibleItems;
-        LibraryCountText.Text = _showFavorites
-            ? $"{visibleItems.Length} favorite{(visibleItems.Length == 1 ? "" : "s")}"
-            : $"{visibleItems.Length} image{(visibleItems.Length == 1 ? "" : "s")}";
+        ReconcileGalleryItems(visibleItems);
+        UpdateLibraryCountText();
+        ScheduleThumbnailScan();
         AllImagesButton.Background = _showFavorites ? (System.Windows.Media.Brush)FindResource("RaisedBrush") : (System.Windows.Media.Brush)FindResource("AccentBrush");
         AllImagesButton.Foreground = _showFavorites ? (System.Windows.Media.Brush)FindResource("TextBrush") : (System.Windows.Media.Brush)FindResource("CanvasBrush");
         FavoritesFilterButton.Background = _showFavorites ? (System.Windows.Media.Brush)FindResource("AccentBrush") : (System.Windows.Media.Brush)FindResource("RaisedBrush");
@@ -170,20 +185,53 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!_featuredItem.IsImageAvailable)
+        {
+            FeaturedImage.Source = null;
+            FeaturedImage.Visibility = Visibility.Collapsed;
+            EmptyImageText.Visibility = Visibility.Visible;
+            EmptyImageText.Text = "The catalogue arrived before this image. It will appear automatically after the sync completes.";
+            FeaturedTitle.Text = _featuredItem.Title;
+            FeaturedExplanation.Text = _featuredItem.Explanation;
+            ImageDate.Text = $"NASA ASTRONOMY PICTURE OF THE DAY     /     {_featuredItem.Date}";
+            FavoriteButton.Content = _featuredItem.IsFavorite ? "★  Saved to favorites" : "☆  Save to favorites";
+            return;
+        }
+
         FeaturedImage.Visibility = Visibility.Visible;
         EmptyImageText.Visibility = Visibility.Collapsed;
         var featuredPath = _featuredItem.FilePath;
-        var bitmap = await Task.Run(() =>
+        BitmapImage? bitmap;
+        try
         {
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-            image.UriSource = new Uri(featuredPath, UriKind.Absolute);
-            image.EndInit();
-            image.Freeze();
-            return image;
-        });
+            bitmap = await Task.Run(() =>
+            {
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                image.UriSource = new Uri(featuredPath, UriKind.Absolute);
+                image.EndInit();
+                image.Freeze();
+                return image;
+            });
+        }
+        catch (IOException)
+        {
+            FeaturedImage.Source = null;
+            FeaturedImage.Visibility = Visibility.Collapsed;
+            EmptyImageText.Visibility = Visibility.Visible;
+            EmptyImageText.Text = "This image is still syncing. It will appear when the file is complete.";
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            FeaturedImage.Source = null;
+            FeaturedImage.Visibility = Visibility.Collapsed;
+            EmptyImageText.Visibility = Visibility.Visible;
+            EmptyImageText.Text = "This image is temporarily unavailable while synchronization is in progress.";
+            return;
+        }
         if (version != _refreshVersion || _featuredItem?.FilePath != featuredPath) return;
         FeaturedImage.Source = bitmap;
         FeaturedTitle.Text = _featuredItem.Title;
@@ -299,6 +347,35 @@ public partial class MainWindow : Window
     private void SettingsDrawer_Click(object sender, RoutedEventArgs e) =>
         SettingsDrawer.Visibility = SettingsDrawer.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
 
+    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, MainTabs) && MainTabs.SelectedIndex == 1)
+            ScheduleThumbnailScan();
+    }
+
+    private void Library_FilesChangedExternally(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(() =>
+        {
+            _librarySyncTimer.Stop();
+            _librarySyncTimer.Start();
+        });
+
+    private async void LibrarySyncTimer_Tick(object? sender, EventArgs e)
+    {
+        _librarySyncTimer.Stop();
+        try
+        {
+            await RefreshAsync();
+            if (_library.LastLoadWarning is { } warning)
+                StatusText.Text = warning;
+        }
+        catch (Exception exception)
+        {
+            ErrorReporter.Log(exception, "Refreshing a synchronized library");
+            StatusText.Text = "The shared library is temporarily unavailable; AstroDay will retry after the next sync change.";
+        }
+    }
+
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
     private void Maximize_Click(object sender, RoutedEventArgs e) =>
@@ -307,8 +384,15 @@ public partial class MainWindow : Window
     private async void FavoriteButton_Click(object sender, RoutedEventArgs e)
     {
         if (_featuredItem is null) return;
-        await _library.ToggleFavoriteAsync(_featuredItem.Date);
-        await RefreshAsync();
+        var isFavorite = await _library.ToggleFavoriteAsync(_featuredItem.Date);
+        if (isFavorite is bool value)
+        {
+            _featuredItem.IsFavorite = value;
+            FavoriteButton.Content = value ? "★  Saved to favorites" : "☆  Save to favorites";
+            UpdateLibraryCountText();
+            if (_showFavorites)
+                ReconcileGalleryItems((await _library.GetItemsAsync()).Where(item => item.IsFavorite).ToArray());
+        }
         (Application.Current as App)?.UpdateFavoriteRotation();
         if (_settings.FavoritesOnly) await ApplyAutomaticSourceAsync();
     }
@@ -316,8 +400,16 @@ public partial class MainWindow : Window
     private async void GalleryFavorite_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string date }) return;
-        await _library.ToggleFavoriteAsync(date);
-        await RefreshAsync();
+        var isFavorite = await _library.ToggleFavoriteAsync(date);
+        if (isFavorite is bool value && sender is FrameworkElement { DataContext: ApodItem item })
+        {
+            item.IsFavorite = value;
+            if (ReferenceEquals(_featuredItem, item))
+                FavoriteButton.Content = value ? "★  Saved to favorites" : "☆  Save to favorites";
+            if (_showFavorites && !value)
+                _galleryItems.Remove(item);
+            UpdateLibraryCountText();
+        }
         (Application.Current as App)?.UpdateFavoriteRotation();
         if (_settings.FavoritesOnly) await ApplyAutomaticSourceAsync();
     }
@@ -460,6 +552,111 @@ public partial class MainWindow : Window
     {
         if (GalleryList.SelectedItem is ApodItem item)
             StatusText.Text = $"Selected · {item.Date} · {item.Title}";
+    }
+
+    private void GalleryThumbnail_Loaded(object sender, RoutedEventArgs e) => ScheduleThumbnailScan();
+
+    private void GalleryList_ScrollChanged(object sender, ScrollChangedEventArgs e) => ScheduleThumbnailScan();
+
+    private void ScheduleThumbnailScan()
+    {
+        _thumbnailScanTimer.Stop();
+        _thumbnailScanTimer.Start();
+    }
+
+    private void ThumbnailScanTimer_Tick(object? sender, EventArgs e)
+    {
+        _thumbnailScanTimer.Stop();
+        if (MainTabs.SelectedIndex != 1) return;
+
+        foreach (var item in _galleryItems)
+        {
+            var row = GalleryList.ItemContainerGenerator.ContainerFromItem(item) as ListBoxItem;
+            var image = FindDescendantImage(row);
+            if (image is null) continue;
+            if (IsNearGalleryViewport(row))
+                _ = LoadThumbnailAsync(image);
+        }
+    }
+
+    private bool IsNearGalleryViewport(FrameworkElement? element)
+    {
+        if (element is not { IsLoaded: true } || GalleryList.ActualHeight <= 0) return false;
+        var point = element.TranslatePoint(new System.Windows.Point(0, 0), GalleryList);
+        return point.Y + element.ActualHeight >= -180 &&
+               point.Y <= GalleryList.ActualHeight + 180;
+    }
+
+    private static Image? FindDescendantImage(DependencyObject? root)
+    {
+        if (root is null) return null;
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is Image image) return image;
+            if (FindDescendantImage(child) is { } descendant) return descendant;
+        }
+        return null;
+    }
+
+    private async Task LoadThumbnailAsync(Image image)
+    {
+        if (image.Tag is not string path || !File.Exists(path)) return;
+        long writeTicks;
+        try { writeTicks = File.GetLastWriteTimeUtc(path).Ticks; }
+        catch (IOException) { return; }
+        catch (UnauthorizedAccessException) { return; }
+
+        var key = (path, writeTicks);
+        if (_displayedThumbnails.TryGetValue(image, out var displayed) && displayed == key)
+            return;
+        if (_thumbnailCache.TryGetValue(key, out var cached))
+        {
+            image.Source = cached;
+            _displayedThumbnails[image] = key;
+            return;
+        }
+        if (!_pendingThumbnails.TryAdd(key, 0)) return;
+
+        try
+        {
+            await _thumbnailDecodeGate.WaitAsync();
+            try
+            {
+                var bitmap = await Task.Run(() =>
+                {
+                    var decoded = new BitmapImage();
+                    decoded.BeginInit();
+                    decoded.CacheOption = BitmapCacheOption.OnLoad;
+                    decoded.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                    decoded.DecodePixelWidth = 320;
+                    decoded.UriSource = new Uri(path, UriKind.Absolute);
+                    decoded.EndInit();
+                    decoded.Freeze();
+                    return decoded;
+                });
+                _thumbnailCache[key] = bitmap;
+                if (string.Equals(image.Tag as string, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    image.Source = bitmap;
+                    _displayedThumbnails[image] = key;
+                }
+
+                var stale = _thumbnailCache.Keys.Where(existing => existing.Path == path && existing.Ticks != writeTicks).ToArray();
+                foreach (var oldKey in stale)
+                    _thumbnailCache.TryRemove(oldKey, out _);
+                while (_thumbnailCache.Count > 160)
+                {
+                    var oldest = _thumbnailCache.Keys.FirstOrDefault();
+                    if (oldest.Path is null) break;
+                    _thumbnailCache.TryRemove(oldest, out _);
+                }
+            }
+            finally { _thumbnailDecodeGate.Release(); }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        finally { _pendingThumbnails.TryRemove(key, out _); }
     }
 
     private async void ShowAll_Click(object sender, RoutedEventArgs e)
@@ -657,6 +854,12 @@ public partial class MainWindow : Window
             var check = new System.Windows.Controls.Primitives.ToggleButton { IsChecked = enabled, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0), Style = (Style)FindResource("FavoritesSwitchStyle") };
             DockPanel.SetDock(check, Dock.Right);
             var label = new TextBlock { Text = $"{index + 1}. {ApodSources.DisplayName(source)}", VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 8, 0) };
+            var sourceTooltip = ApodSources.Description(source) + Environment.NewLine + Environment.NewLine + "AstroDay tries enabled sources from top to bottom and uses the first valid still image.";
+            row.ToolTip = sourceTooltip;
+            label.ToolTip = sourceTooltip;
+            check.ToolTip = enabled ? "Disable this source without removing it from the hierarchy" : "Enable this source";
+            up.ToolTip = "Move this source up: try it earlier";
+            down.ToolTip = "Move this source down: try it later";
             check.Click += async (_, _) =>
             {
                 _sourceRows[rowIndex] = (source, check.IsChecked == true);
@@ -724,8 +927,8 @@ public partial class MainWindow : Window
     {
         var items = await _library.GetItemsAsync();
         var item = _settings.FavoritesOnly
-            ? FavoriteSelector.ChooseRandom(items, _settings.LastFavoritePath)
-            : preferredItem is { HasImage: true } ? preferredItem : items.FirstOrDefault(candidate => candidate.HasImage);
+            ? FavoriteSelector.ChooseRandom(items.Where(candidate => candidate.IsImageAvailable).ToArray(), _settings.LastFavoritePath)
+            : preferredItem is { IsImageAvailable: true } ? preferredItem : items.FirstOrDefault(candidate => candidate.IsImageAvailable);
         if (item is null)
         {
             if (_settings.FavoritesOnly) StatusText.Text = "Add a favorite before using favorites as the automatic source";
@@ -753,7 +956,7 @@ public partial class MainWindow : Window
     private async Task<ApodItem?> GetImageToApplyAsync()
     {
         if (!_settings.FavoritesOnly) return GetSelectedImage();
-        var item = FavoriteSelector.ChooseRandom(await _library.GetItemsAsync(), _settings.LastFavoritePath);
+        var item = FavoriteSelector.ChooseRandom((await _library.GetItemsAsync()).Where(candidate => candidate.IsImageAvailable).ToArray(), _settings.LastFavoritePath);
         if (item is null)
         {
             StatusText.Text = "Add a favorite before applying favorites";
@@ -771,12 +974,44 @@ public partial class MainWindow : Window
             MainTabs.SelectedIndex == 1,
             GalleryList.SelectedItem as ApodItem,
             _featuredItem);
-        if (item is { HasImage: false })
+        if (item is { IsImageAvailable: false })
         {
-            StatusText.Text = "This day has no still image to apply";
+            StatusText.Text = item.HasImage
+                ? "This image is still syncing; try again in a moment"
+                : "This day has no still image to apply";
             return null;
         }
         return item;
+    }
+
+    private void ReconcileGalleryItems(IReadOnlyList<ApodItem> desiredItems)
+    {
+        var desiredDates = desiredItems.Select(item => item.Date).ToHashSet(StringComparer.Ordinal);
+        for (var index = _galleryItems.Count - 1; index >= 0; index--)
+            if (!desiredDates.Contains(_galleryItems[index].Date))
+                _galleryItems.RemoveAt(index);
+
+        for (var index = 0; index < desiredItems.Count; index++)
+        {
+            var desired = desiredItems[index];
+            var existingIndex = _galleryItems.ToList().FindIndex(item => item.Date == desired.Date);
+            if (existingIndex < 0)
+            {
+                _galleryItems.Insert(index, desired);
+            }
+            else if (existingIndex != index)
+            {
+                _galleryItems.Move(existingIndex, index);
+            }
+        }
+    }
+
+    private void UpdateLibraryCountText()
+    {
+        var count = _galleryItems.Count;
+        LibraryCountText.Text = _showFavorites
+            ? $"{count} favorite{(count == 1 ? "" : "s")}"
+            : $"{count} image{(count == 1 ? "" : "s")}";
     }
 
     private Task SaveSettingsAsync() => SettingsService.SaveAsync(_settingsPath, _settings);
@@ -785,7 +1020,14 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (AllowClose) return;
+        if (AllowClose)
+        {
+            _librarySyncTimer.Stop();
+            _thumbnailScanTimer.Stop();
+            _thumbnailDecodeGate.Dispose();
+            _library.FilesChangedExternally -= Library_FilesChangedExternally;
+            return;
+        }
         e.Cancel = true;
         if (_settings.CloseToTray)
         {

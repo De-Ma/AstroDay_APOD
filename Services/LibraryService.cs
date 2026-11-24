@@ -5,13 +5,17 @@ using AstroDay.Models;
 
 namespace AstroDay.Services;
 
-public sealed class LibraryService
+public sealed class LibraryService : IDisposable
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
     private readonly string _settingsPath;
     private readonly AppSettings _settings;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private List<ApodItem> _items = [];
+    private bool _hasLoadedIndex;
+    private string? _indexStamp;
+    private FileSystemWatcher? _watcher;
+    private DateTimeOffset _ignoreLibraryChangeUntil;
     private const long MaximumImageBytes = 100L * 1024 * 1024;
 
     public LibraryService(string directory, string settingsPath, AppSettings settings)
@@ -19,10 +23,12 @@ public sealed class LibraryService
         DirectoryPath = directory;
         _settingsPath = settingsPath;
         _settings = settings;
+        ResetWatcher();
     }
 
     public string DirectoryPath { get; private set; }
     public string? LastLoadWarning { get; private set; }
+    public event EventHandler? FilesChangedExternally;
     private string IndexPath => Path.Combine(DirectoryPath, "library.json");
 
     public async Task<IReadOnlyList<ApodItem>> GetItemsAsync()
@@ -80,6 +86,8 @@ public sealed class LibraryService
 
                 File.Move(temporaryPath, filePath, true);
                 item.FilePath = filePath;
+                item.FileSizeBytes = new FileInfo(filePath).Length;
+                item.UpdatedAtUtc = DateTimeOffset.UtcNow;
                 var old = _items.FirstOrDefault(existing => existing.Date == item.Date);
                 if (old is not null) item.IsFavorite = old.IsFavorite;
                 var staleFile = old is not null && !string.Equals(old.FilePath, filePath, StringComparison.OrdinalIgnoreCase) ? old.FilePath : null;
@@ -115,6 +123,7 @@ public sealed class LibraryService
             throw new InvalidDataException("The APOD record contains an invalid date.");
         item.FilePath = "";
         item.ImageUrl = "";
+        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _gate.WaitAsync();
         try
@@ -162,16 +171,18 @@ public sealed class LibraryService
         finally { _gate.Release(); }
     }
 
-    public async Task ToggleFavoriteAsync(string date)
+    public async Task<bool?> ToggleFavoriteAsync(string date)
     {
         await _gate.WaitAsync();
         try
         {
             await LoadIndexAsync();
             var item = _items.FirstOrDefault(entry => entry.Date == date);
-            if (item is null) return;
+            if (item is null) return null;
             item.IsFavorite = !item.IsFavorite;
+            item.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await SaveIndexAsync();
+            return item.IsFavorite;
         }
         finally { _gate.Release(); }
     }
@@ -189,17 +200,21 @@ public sealed class LibraryService
             Directory.CreateDirectory(target);
             foreach (var item in _items)
             {
-                if (!File.Exists(item.FilePath)) continue;
+                if (string.IsNullOrWhiteSpace(item.FilePath)) continue;
                 var destination = Path.Combine(target, Path.GetFileName(item.FilePath));
                 if (!string.Equals(Path.GetFullPath(item.FilePath), destination, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (File.Exists(destination))
-                        File.Move(destination, CreatePreservedPath(destination), false);
-                    File.Copy(item.FilePath, destination, false);
+                    if (File.Exists(item.FilePath))
+                    {
+                        if (File.Exists(destination))
+                            File.Move(destination, CreatePreservedPath(destination), false);
+                        File.Copy(item.FilePath, destination, false);
+                    }
                 }
                 item.FilePath = destination;
             }
             DirectoryPath = target;
+            ResetWatcher();
             _settings.LibraryDirectory = target;
             var targetIndexPath = Path.Combine(target, "library.json");
             if (File.Exists(targetIndexPath))
@@ -216,23 +231,188 @@ public sealed class LibraryService
     private async Task LoadIndexAsync()
     {
         Directory.CreateDirectory(DirectoryPath);
+        foreach (var item in _items)
+            item.RefreshFileState();
+
+        var currentStamp = GetIndexStamp();
+        if (_hasLoadedIndex && currentStamp == _indexStamp)
+            return;
+
         LastLoadWarning = null;
-        if (!File.Exists(IndexPath)) { _items = []; return; }
+        if (!File.Exists(IndexPath))
+        {
+            if (_hasLoadedIndex && _items.Count > 0)
+            {
+                LastLoadWarning = "The shared image catalogue is temporarily unavailable. AstroDay kept the last loaded items.";
+                return;
+            }
+            _items = [];
+            _hasLoadedIndex = true;
+            _indexStamp = null;
+            return;
+        }
+
         try
         {
-            await using var stream = File.OpenRead(IndexPath);
-            _items = await JsonSerializer.DeserializeAsync<List<ApodItem>>(stream) ?? [];
-            _items = _items.Where(item => item is not null && (!item.HasImage || (IsInsideLibrary(item.FilePath) && File.Exists(item.FilePath)))).ToList();
+            await using var stream = new FileStream(IndexPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
+            var loadedItems = await JsonSerializer.DeserializeAsync<List<ApodItem>>(stream) ?? [];
+            loadedItems = loadedItems.Where(item => item is not null).ToList();
+            foreach (var item in loadedItems)
+                item.FilePath = ResolveLibraryPath(item.FilePath);
+            ReconcileItems(loadedItems);
+            _hasLoadedIndex = true;
+            _indexStamp = GetIndexStamp();
         }
         catch (JsonException exception)
         {
-            LastLoadWarning = $"The image catalogue is damaged. AstroDay saved a recovery copy. {exception.Message}";
-            PreserveDamagedIndex();
-            _items = [];
+            if (_hasLoadedIndex && _items.Count > 0)
+                LastLoadWarning = $"The shared image catalogue is not readable yet. AstroDay kept the last loaded items. {exception.Message}";
+            else
+            {
+                LastLoadWarning = $"The image catalogue is damaged. AstroDay saved a recovery copy. {exception.Message}";
+                PreserveDamagedIndex();
+                _items = [];
+                _hasLoadedIndex = true;
+            }
+        }
+        catch (IOException exception)
+        {
+            LastLoadWarning = _hasLoadedIndex
+                ? $"The image catalogue is temporarily locked by a sync operation. AstroDay kept the last loaded items. {exception.Message}"
+                : $"The image catalogue could not be read yet. AstroDay will retry after the sync operation. {exception.Message}";
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            LastLoadWarning = _hasLoadedIndex
+                ? $"The image catalogue is temporarily inaccessible. AstroDay kept the last loaded items. {exception.Message}"
+                : $"The image catalogue could not be accessed. AstroDay will retry when it becomes available. {exception.Message}";
         }
     }
 
-    private Task SaveIndexAsync() => AtomicJsonFile.WriteAsync(IndexPath, _items, Options);
+    private async Task SaveIndexAsync()
+    {
+        var serializableItems = _items.Select(item => new ApodItem
+        {
+            Date = item.Date,
+            Title = item.Title,
+            Explanation = item.Explanation,
+            FilePath = MakePortablePath(item.FilePath),
+            ImageUrl = item.ImageUrl,
+            IsFavorite = item.IsFavorite,
+            FileSizeBytes = item.FileSizeBytes,
+            UpdatedAtUtc = item.UpdatedAtUtc
+        }).ToList();
+        await AtomicJsonFile.WriteAsync(IndexPath, serializableItems, Options);
+        _ignoreLibraryChangeUntil = DateTimeOffset.UtcNow.AddSeconds(1);
+        _hasLoadedIndex = true;
+        _indexStamp = GetIndexStamp();
+    }
+
+    private void ReconcileItems(IReadOnlyList<ApodItem> loadedItems)
+    {
+        var currentByDate = _items.ToDictionary(item => item.Date, StringComparer.Ordinal);
+        var loadedDates = loadedItems.Select(item => item.Date).ToHashSet(StringComparer.Ordinal);
+        foreach (var item in currentByDate.Values.Where(item => !loadedDates.Contains(item.Date)).ToArray())
+            _items.Remove(item);
+
+        foreach (var loaded in loadedItems)
+        {
+            if (currentByDate.TryGetValue(loaded.Date, out var current))
+            {
+                current.Title = loaded.Title;
+                current.Explanation = loaded.Explanation;
+                current.FilePath = loaded.FilePath;
+                current.ImageUrl = loaded.ImageUrl;
+                current.IsFavorite = loaded.IsFavorite;
+                current.FileSizeBytes = loaded.FileSizeBytes;
+                current.UpdatedAtUtc = loaded.UpdatedAtUtc;
+                current.RefreshFileState();
+            }
+            else
+            {
+                _items.Add(loaded);
+            }
+        }
+        _items.Sort((left, right) => string.CompareOrdinal(right.Date, left.Date));
+    }
+
+    private string? GetIndexStamp()
+    {
+        try
+        {
+            var info = new FileInfo(IndexPath);
+            return info.Exists ? $"{info.LastWriteTimeUtc.Ticks}:{info.Length}" : null;
+        }
+        catch (IOException) { return _indexStamp; }
+        catch (UnauthorizedAccessException) { return _indexStamp; }
+    }
+
+    private void ResetWatcher()
+    {
+        _watcher?.Dispose();
+        try
+        {
+            Directory.CreateDirectory(DirectoryPath);
+            var watcher = new FileSystemWatcher(DirectoryPath)
+            {
+                IncludeSubdirectories = false,
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size
+            };
+            watcher.Changed += LibraryFileChanged;
+            watcher.Created += LibraryFileChanged;
+            watcher.Deleted += LibraryFileChanged;
+            watcher.Renamed += LibraryFileChanged;
+            watcher.Error += (_, _) =>
+            {
+                LastLoadWarning = "AstroDay could not watch this shared folder for changes. Use the normal refresh actions to reload it.";
+            };
+            watcher.EnableRaisingEvents = true;
+            _watcher = watcher;
+        }
+        catch (IOException exception)
+        {
+            LastLoadWarning = $"The shared library folder is temporarily unavailable. {exception.Message}";
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            LastLoadWarning = $"The shared library folder cannot be watched right now. {exception.Message}";
+        }
+    }
+
+    private void LibraryFileChanged(object sender, FileSystemEventArgs args)
+    {
+        if (args.Name is null || args.Name.StartsWith(".library.json.", StringComparison.OrdinalIgnoreCase))
+            return;
+        if (args.Name.Equals("library.json", StringComparison.OrdinalIgnoreCase) && DateTimeOffset.UtcNow < _ignoreLibraryChangeUntil)
+            return;
+        FilesChangedExternally?.Invoke(this, EventArgs.Empty);
+    }
+
+    private string ResolveLibraryPath(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return "";
+        try
+        {
+            var fileName = Path.GetFileName(filePath);
+            if (string.IsNullOrWhiteSpace(fileName)) return "";
+            return Path.GetFullPath(Path.Combine(DirectoryPath, fileName));
+        }
+        catch (ArgumentException) { return ""; }
+        catch (NotSupportedException) { return ""; }
+        catch (PathTooLongException) { return ""; }
+    }
+
+    private string MakePortablePath(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return "";
+        try
+        {
+            return IsInsideLibrary(filePath) ? Path.GetRelativePath(DirectoryPath, filePath) : Path.GetFileName(filePath);
+        }
+        catch (ArgumentException) { return ""; }
+        catch (NotSupportedException) { return ""; }
+        catch (PathTooLongException) { return ""; }
+    }
 
     private bool IsInsideLibrary(string filePath)
     {
@@ -258,5 +438,12 @@ public sealed class LibraryService
         try { File.Move(IndexPath, backupPath, false); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+    }
+
+    public void Dispose()
+    {
+        _watcher?.Dispose();
+        _watcher = null;
+        _gate.Dispose();
     }
 }
